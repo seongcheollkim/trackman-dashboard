@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 from typing import Any
+import os
 
 import matplotlib.image as mpimg
 import matplotlib.patches as patches
@@ -14,16 +15,16 @@ import pandas as pd
 import streamlit as st
 
 def configure_matplotlib_korean_font() -> None:
-    """설치된 한글 폰트를 찾아 Matplotlib 전체 그래프에 적용한다."""
+    """로컬 macOS와 Streamlit Cloud에서 한글 폰트를 자동 적용."""
 
     preferred_fonts = [
-        "Apple SD Gothic Neo",
-        "AppleGothic",
+        "NanumGothic",          # Streamlit Cloud: packages.txt로 설치
+        "Apple SD Gothic Neo",  # macOS
+        "AppleGothic",          # macOS
         "Arial Unicode MS",
         "Noto Sans CJK KR",
         "Noto Sans KR",
-        "NanumGothic",
-        "Malgun Gothic",
+        "Malgun Gothic",        # Windows
     ]
 
     installed_fonts = {
@@ -36,14 +37,14 @@ def configure_matplotlib_korean_font() -> None:
     )
 
     if selected_font is None:
-        print("⚠️ Matplotlib에서 사용할 한글 폰트를 찾지 못했습니다.")
+        print("⚠️ Matplotlib 한글 폰트를 찾지 못했습니다.")
         print(
             sorted(
                 name
                 for name in installed_fonts
                 if any(
                     keyword in name.lower()
-                    for keyword in ["gothic", "nanum", "noto", "malgun"]
+                    for keyword in ["nanum", "gothic", "noto", "malgun"]
                 )
             )
         )
@@ -57,6 +58,21 @@ def configure_matplotlib_korean_font() -> None:
     plt.rcParams["axes.unicode_minus"] = False
 
     print(f"✅ Matplotlib 한글 폰트 적용: {selected_font}")
+
+def refresh_matplotlib_font_cache() -> None:
+    cache_dir = Path.home() / ".cache" / "matplotlib"
+
+    if cache_dir.exists():
+        for cache_file in cache_dir.glob("fontlist-*.json"):
+            try:
+                cache_file.unlink()
+            except OSError:
+                pass
+
+    fm._load_fontmanager(try_read_cache=False)
+
+
+refresh_matplotlib_font_cache()
 
 configure_matplotlib_korean_font()
 
