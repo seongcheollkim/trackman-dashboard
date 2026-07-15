@@ -14,30 +14,49 @@ import pandas as pd
 import streamlit as st
 
 def configure_matplotlib_korean_font() -> None:
-    """운영체제에 설치된 한글 폰트를 Matplotlib에 적용한다."""
+    """설치된 한글 폰트를 찾아 Matplotlib 전체 그래프에 적용한다."""
+
     preferred_fonts = [
-        "AppleGothic",       # macOS 기본 한글 폰트
-        "Arial Unicode MS",  # 일부 macOS
-        "NanumGothic",
+        "Apple SD Gothic Neo",
+        "AppleGothic",
+        "Arial Unicode MS",
         "Noto Sans CJK KR",
         "Noto Sans KR",
-        "Malgun Gothic",     # Windows
+        "NanumGothic",
+        "Malgun Gothic",
     ]
 
     installed_fonts = {
         font.name for font in fm.fontManager.ttflist
     }
 
-    for font_name in preferred_fonts:
-        if font_name in installed_fonts:
-            plt.rcParams["font.family"] = font_name
-            break
-    else:
-        # 한글 폰트를 못 찾은 경우 기본 폰트 유지
-        plt.rcParams["font.family"] = "sans-serif"
+    selected_font = next(
+        (name for name in preferred_fonts if name in installed_fonts),
+        None,
+    )
 
-    # 음수 기호가 네모로 깨지는 현상 방지
+    if selected_font is None:
+        print("⚠️ Matplotlib에서 사용할 한글 폰트를 찾지 못했습니다.")
+        print(
+            sorted(
+                name
+                for name in installed_fonts
+                if any(
+                    keyword in name.lower()
+                    for keyword in ["gothic", "nanum", "noto", "malgun"]
+                )
+            )
+        )
+        return
+
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = [
+        selected_font,
+        "DejaVu Sans",
+    ]
     plt.rcParams["axes.unicode_minus"] = False
+
+    print(f"✅ Matplotlib 한글 폰트 적용: {selected_font}")
 
 configure_matplotlib_korean_font()
 
@@ -130,7 +149,17 @@ CSS = """
 
 /* Streamlit 기본 상단 헤더 완전히 숨김 */
 header[data-testid="stHeader"] {
-  display: none !important;
+  display: block !important;
+  visibility: visible !important;
+  background: transparent !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
 }
 
 [data-testid="stDecoration"] {
