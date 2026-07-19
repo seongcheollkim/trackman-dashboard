@@ -1,227 +1,52 @@
-# 🏌️ TrackMan Dashboard
-![Dashboard](docs/dashboard.png)
+# TrackMan Dashboard v2.0
 
-TrackMan `getactivityreport` JSON 또는 Shot CSV를 업로드하여
-클럽별 성능을 분석하고, 날짜별/기간별 변화까지 확인할 수 있는
-Streamlit 기반 골프 연습 분석 대시보드입니다.
+## 주요 변경점
 
----
+- TrackMan 보고서를 로컬 `data/trackman_reports`에 저장
+- 신규 보고서를 Supabase Storage에 자동 백업
+- Streamlit Cloud 재시작 시 Supabase에서 자동 복원
+- 로컬 전체 보고서 일괄 백업 및 클라우드 새로고침
+- 직접 추가한 JSON도 영구 저장
+- Parquet 캐시 유지
 
-# 주요 기능
+## 1. Supabase 버킷 생성
 
-## 📂 데이터 업로드
+Supabase Dashboard > Storage에서 비공개 버킷을 생성합니다.
 
-- TrackMan `getactivityreport` JSON 업로드
-- Shot CSV 업로드 지원
-- 여러 개의 JSON 동시 업로드
-- 자동 데이터 병합
+- Bucket name: `trackman-reports`
+- Public bucket: Off
+- MIME type 제한을 사용한다면 `application/json` 허용
 
----
+## 2. 로컬 Secrets 설정
 
-## 📅 날짜 및 기간 분석
+프로젝트에 `.streamlit/secrets.toml`을 만들고 `secrets.toml.example` 내용을 복사합니다.
 
-- 특정 날짜 연습 데이터 분석
-- 여러 날짜 평균 비교
-- 월간 평균과 특정 날짜 비교
-- 연간 평균과 특정 날짜 비교
-
----
-
-## 🏌️ 클럽별 분석
-
-지원 클럽
-
-- Driver
-- Wood
-- Hybrid
-- Long Iron
-- Mid Iron
-- Short Iron
-- Wedge
-
-클럽 선택 시
-
-- 평균값 자동 계산
-- 샷 개수 표시
-- 최고/최저값 확인
-
----
-
-## 📊 주요 성능 지표
-
-다음 항목을 카드 형태로 제공합니다.
-
-- Carry
-- Total
-- Ball Speed
-- Club Speed
-- Smash Factor
-- Spin Rate
-- Launch Angle
-- Attack Angle
-- Club Path
-- Face Angle
-- Face To Path
-- Dynamic Loft
-- Spin Loft
-- Max Height
-- Landing Angle
-- Offline
-- Side
-- Apex
-
----
-
-## 📈 기간 비교
-
-선택한 날짜와
-
-- 월간 평균
-- 연간 평균
-
-을 동시에 비교하여
-
-- 증가
-- 감소
-- 변화량
-
-을 직관적으로 확인할 수 있습니다.
-
----
-
-## 🎯 임팩트 분석
-
-클럽별 평균 임팩트 위치
-
-- Heel / Toe
-- High / Low
-
-시각화
-
-또한
-
-각 샷별 임팩트 위치도 확인할 수 있습니다.
-
----
-
-## 🏌️ 스윙 분석
-
-시각화 제공
-
-- Club Path
-- Face Angle
-- Face To Path
-- Dynamic Loft
-
----
-
-## 📋 샷 상세 분석
-
-각 샷별
-
-- 모든 TrackMan 데이터
-- 볼 데이터
-- 클럽 데이터
-
-를 표 형태로 제공합니다.
-
----
-
-## 📊 인터랙티브 차트
-
-- Plotly 기반 차트
-- 확대/축소 가능
-- Hover 정보 제공
-
----
-
-## 설치
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
+```toml
+SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
+SUPABASE_KEY = "YOUR_KEY"
+SUPABASE_BUCKET = "trackman-reports"
 ```
 
----
+`.streamlit/secrets.toml`은 GitHub에 올리지 마세요.
 
-## 실행
+## 3. Storage 정책
+
+비공개 버킷에서 anon key를 사용할 경우 `storage.objects`에 해당 버킷의 SELECT/INSERT/UPDATE 정책이 필요합니다. 개인 전용 앱에서는 Streamlit Cloud Secrets에 service_role key를 넣는 방법도 있지만, 키가 외부에 노출되지 않도록 반드시 서버 측 Secrets에서만 사용해야 합니다.
+
+## 4. 파일 교체
+
+- `streamlit_app_v2.py` → `streamlit_app.py`
+- `trackman_storage_v2.py` → `trackman_storage.py`
+- `trackman_sync_v2.py` → `trackman_sync.py`
+- `requirements_v2.txt` → `requirements.txt`
+
+## 5. 실행
 
 ```bash
+pip install -r requirements.txt
 python -m streamlit run streamlit_app.py
 ```
 
----
+## 최초 데이터 이전
 
-## 데이터 준비
-
-### 방법 1 : TrackMan JSON
-
-1. TrackMan Web 접속
-2. Chrome DevTools 실행
-3. Network 선택
-4. `getactivityreport` 요청 선택
-5. Response 저장
-6. JSON 업로드
-
----
-
-### 방법 2 : Shot CSV
-
-이미 변환된 Shot CSV를 업로드하여
-동일하게 분석할 수 있습니다.
-
----
-
-## 프로젝트 구조
-
-```
-trackman_dashboard_project/
-│
-├── streamlit_app.py        # Streamlit UI
-├── trackman_core.py        # 데이터 처리
-├── trackman_cli.py         # JSON → CSV 변환
-├── requirements.txt
-├── README.md
-│
-├── assets/
-│   ├── impact.png
-│   ├── club_path.png
-│   └── ...
-│
-└── data/
-```
-
----
-
-## 사용 기술
-
-- Python
-- Streamlit
-- Pandas
-- Plotly
-- NumPy
-- Pillow
-
----
-
-## 향후 개발 계획
-
-- AI 스윙 분석
-- 클럽별 추세 분석
-- 목표 거리 관리
-- 평균 대비 편차 분석
-- 연습 성과 리포트 자동 생성(PDF)
-- 사용자별 데이터 관리
-- 클라우드 데이터 저장
-
----
-
-## License
-
-Personal Project
-
-TrackMan®는 TrackMan A/S의 등록 상표입니다.
-
-본 프로젝트는 개인 연습 데이터 분석을 위한 비공식 프로젝트입니다.
+기존 로컬 보고서가 있다면 앱 사이드바에서 `로컬 데이터를 Supabase에 백업`을 한 번 누릅니다. 이후 신규 TrackMan 동기화 데이터는 자동으로 클라우드에 백업됩니다.

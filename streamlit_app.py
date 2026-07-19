@@ -2,20 +2,33 @@ from __future__ import annotations
 
 import json
 import math
+import os
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any
-import os
 
+import matplotlib
+
+# Streamlit 서버에서는 GUI 백엔드가 필요하지 않습니다.
+# macOS에서 발생할 수 있는 Matplotlib 관련 충돌을 방지합니다.
+matplotlib.use("Agg")
+
+import matplotlib.font_manager as fm
 import matplotlib.image as mpimg
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 import streamlit as st
 
+_FONT_CONFIGURED = False
+
 def configure_matplotlib_korean_font() -> None:
-    """로컬 macOS와 Streamlit Cloud에서 한글 폰트를 자동 적용."""
+    """로컬 macOS와 Streamlit Cloud에서 한글 폰트를 한 번만 적용합니다."""
+    global _FONT_CONFIGURED
+
+    if _FONT_CONFIGURED:
+        return
 
     preferred_fonts = [
         "NanumGothic",          # Streamlit Cloud: packages.txt로 설치
@@ -57,24 +70,74 @@ def configure_matplotlib_korean_font() -> None:
     ]
     plt.rcParams["axes.unicode_minus"] = False
 
-    print(f"✅ Matplotlib 한글 폰트 적용: {selected_font}")
+    _FONT_CONFIGURED = True
 
-def refresh_matplotlib_font_cache() -> None:
-    cache_dir = Path.home() / ".cache" / "matplotlib"
-
-    if cache_dir.exists():
-        for cache_file in cache_dir.glob("fontlist-*.json"):
-            try:
-                cache_file.unlink()
-            except OSError:
-                pass
-
-    fm._load_fontmanager(try_read_cache=False)
-
-
-refresh_matplotlib_font_cache()
 
 configure_matplotlib_korean_font()
+
+def safe_dataframe_for_streamlit(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Streamlit의 PyArrow 변환 전에 혼합 자료형을 안전하게 정리합니다."""
+    if source_df is None:
+        return pd.DataFrame()
+
+    result = source_df.copy()
+
+    def normalize_value(value: Any) -> Any:
+        if value is None:
+            return None
+
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
+            pass
+
+        if isinstance(value, np.generic):
+            return value.item()
+
+        if isinstance(value, np.ndarray):
+            return json.dumps(value.tolist(), ensure_ascii=False)
+
+        if isinstance(value, (dict, list, tuple, set)):
+            serializable = list(value) if isinstance(value, set) else value
+            try:
+                return json.dumps(serializable, ensure_ascii=False, default=str)
+            except (TypeError, ValueError):
+                return str(value)
+
+        if isinstance(value, (pd.Timestamp, datetime, date)):
+            if pd.isna(value):
+                return None
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+
+        if isinstance(value, time):
+            return value.strftime("%H:%M:%S")
+
+        return value
+
+    for column in result.columns:
+        series = result[column]
+
+        if pd.api.types.is_datetime64_any_dtype(series):
+            result[column] = series.dt.strftime("%Y-%m-%d %H:%M:%S")
+            result[column] = result[column].replace("NaT", None)
+            continue
+
+        if series.dtype == "object":
+            result[column] = series.map(normalize_value)
+            non_null_values = result[column].dropna()
+            if not non_null_values.empty:
+                value_types = non_null_values.map(type).unique()
+                if len(value_types) > 1:
+                    result[column] = result[column].map(
+                        lambda value: None if value is None else str(value)
+                    )
+
+    return result
+
+
+from trackman_storage import TrackmanStorage
+from trackman_sync import sync_trackman_reports
 
 from trackman_core import (
     OUTPUT_COLUMNS,
@@ -1192,10 +1255,137 @@ h1,h2=st.columns([2.0,1.2])
 with h1: st.markdown("<div class='tm-logo' style='padding-top:8px'><span class='tm-orange'>▰</span> TRACKMAN DASHBOARD</div>",unsafe_allow_html=True)
 with h2: view_mode=st.radio('화면',['상세 분석','기간 비교'],horizontal=True,label_visibility='collapsed')
 
-uploaded=st.file_uploader('getactivityreport JSON 또는 shots CSV 업로드',type=['json','csv','txt'],accept_multiple_files=True)
-rows,load_errors=load_uploaded_files(uploaded)
-for err in load_errors: st.warning(err)
-if not rows: st.info('TrackMan getactivityreport Response JSON 또는 변환된 shots CSV를 업로드하세요.'); st.stop()
+def _app_secret(name: str, default: str = "") -> str:
+    """Streamlit Secrets를 우선 사용하고, 없으면 환경변수를 사용합니다."""
+    try:
+        value = st.secrets.get(name, default)
+    except Exception:
+        value = os.getenv(name, default)
+    return str(value or "").strip()
+
+
+storage = TrackmanStorage(
+    supabase_url=_app_secret("SUPABASE_URL"),
+    supabase_key=_app_secret("SUPABASE_KEY"),
+    bucket=_app_secret("SUPABASE_BUCKET", "trackman-reports"),
+)
+
+# Streamlit Cloud처럼 로컬 데이터가 비어 있는 환경에서는 Supabase 데이터를 한 번 자동 복원합니다.
+if "cloud_restore_checked" not in st.session_state:
+    st.session_state.cloud_restore_checked = True
+    if storage.cloud_configured and not storage.report_files():
+        with st.spinner("Supabase에서 저장된 TrackMan 데이터를 불러오는 중입니다..."):
+            restore_result = storage.pull_cloud_reports()
+        if restore_result.downloaded:
+            storage.write_last_sync(source="supabase_restore", details={"downloaded": restore_result.downloaded})
+
+storage_status = storage.status(check_cloud=True)
+
+st.sidebar.markdown("## 데이터 관리 v2.1")
+st.sidebar.metric("저장된 연습", f"{storage_status.report_count}회")
+if storage_status.last_sync is not None:
+    st.sidebar.caption(f"마지막 동기화: {storage_status.last_sync.astimezone().strftime('%Y-%m-%d %H:%M')}")
+else:
+    st.sidebar.caption("마지막 동기화: 없음")
+
+if not storage_status.cloud_configured:
+    st.sidebar.warning("☁️ Supabase 설정 필요")
+elif storage_status.cloud_connected:
+    cloud_sessions = storage_status.cloud_report_count or 0
+    cloud_shots = storage_status.cloud_shot_count
+    cloud_label = f"☁️ Supabase 연결됨 · {cloud_sessions}회"
+    if cloud_shots is not None:
+        cloud_label += f" · {cloud_shots:,}샷"
+    st.sidebar.success(cloud_label)
+    if storage_status.cloud_updated_at is not None:
+        st.sidebar.caption(
+            "클라우드 마지막 백업: "
+            + storage_status.cloud_updated_at.astimezone().strftime("%Y-%m-%d %H:%M")
+        )
+else:
+    st.sidebar.error("☁️ Supabase 연결 실패")
+    if storage_status.cloud_error:
+        with st.sidebar.expander("Supabase 오류"):
+            st.code(storage_status.cloud_error[-2000:])
+
+if st.sidebar.button("🔄 TrackMan 데이터 동기화", width="stretch", type="primary"):
+    with st.spinner("TrackMan 데이터를 동기화하고 Supabase에 백업하는 중입니다..."):
+        sync_result = sync_trackman_reports(storage=storage)
+    if sync_result.ok:
+        cloud_uploaded = sync_result.cloud.uploaded if sync_result.cloud else 0
+        st.sidebar.success(f"동기화 완료 · 신규 {sync_result.downloaded_count}회 · 클라우드 {cloud_uploaded}회")
+        st.cache_data.clear()
+        st.rerun()
+    else:
+        st.sidebar.error("동기화 또는 클라우드 백업에 실패했습니다.")
+        with st.sidebar.expander("오류 내용"):
+            st.code((sync_result.stderr or sync_result.stdout)[-4000:])
+
+if st.sidebar.button("☁️ Supabase에서 새로고침", width="stretch", disabled=not storage.cloud_configured):
+    with st.spinner("Supabase의 저장 데이터를 확인하는 중입니다..."):
+        pull_result = storage.pull_cloud_reports()
+    if pull_result.ok:
+        storage.write_last_sync(source="supabase_pull", details={"downloaded": pull_result.downloaded})
+        st.sidebar.success(f"클라우드 복원 완료 · 신규 {pull_result.downloaded}회")
+        st.cache_data.clear()
+        st.rerun()
+    else:
+        st.sidebar.error("Supabase 데이터 불러오기에 실패했습니다.")
+        with st.sidebar.expander("오류 내용"):
+            st.code("\n".join(pull_result.errors)[-4000:])
+
+if st.sidebar.button("⬆️ 로컬 데이터를 Supabase에 백업", width="stretch", disabled=not storage.cloud_configured):
+    with st.spinner("로컬 보고서를 Supabase에 백업하는 중입니다..."):
+        upload_result = storage.upload_local_reports()
+    if upload_result.ok:
+        storage.write_last_sync(source="supabase_backup", details={"uploaded": upload_result.uploaded})
+        st.sidebar.success(f"백업 완료 · 신규 {upload_result.uploaded}회 · 기존 {upload_result.skipped}회")
+        st.rerun()
+    else:
+        st.sidebar.error("Supabase 백업에 실패했습니다.")
+        with st.sidebar.expander("오류 내용"):
+            st.code("\n".join(upload_result.errors)[-4000:])
+
+if st.sidebar.button("↻ 로컬 캐시 새로고침", width="stretch"):
+    storage.invalidate_cache()
+    st.cache_data.clear()
+    st.rerun()
+
+with st.sidebar.expander("JSON/CSV 직접 추가"):
+    uploaded = st.file_uploader(
+        "파일 추가",
+        type=["json", "csv", "txt"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+    )
+    json_uploads = [f for f in (uploaded or []) if f.name.lower().endswith((".json", ".txt"))]
+    if st.button("선택한 JSON 영구 저장", width="stretch", disabled=not json_uploads):
+        saved, errors = 0, []
+        for file in json_uploads:
+            try:
+                storage.save_uploaded_json(file.name, file.getvalue(), upload_cloud=True)
+                saved += 1
+            except Exception as exc:
+                errors.append(f"{file.name}: {exc}")
+        if saved:
+            storage.write_last_sync(source="manual_upload", details={"saved": saved})
+            st.success(f"{saved}개 파일을 영구 저장했습니다.")
+            st.cache_data.clear()
+        for error in errors:
+            st.error(error)
+        if saved and not errors:
+            st.rerun()
+
+rows, load_errors = storage.load_rows(parse_trackman_report)
+uploaded_rows, uploaded_errors = load_uploaded_files(uploaded)
+rows.extend(uploaded_rows)
+load_errors.extend(uploaded_errors)
+for err in load_errors:
+    st.warning(err)
+if not rows:
+    st.info("저장된 TrackMan 데이터가 없습니다. 사이드바에서 동기화하거나 JSON 파일을 영구 저장해 주세요.")
+    st.stop()
+
 df=prepare_df(rows); clubs=sorted(df['Club'].dropna().unique().tolist(),key=club_sort_key); dates=sorted(df['Date'].dropna().unique().tolist())
 
 if view_mode=='상세 분석':
@@ -1215,12 +1405,48 @@ if view_mode=='상세 분석':
         with cols[0]: st.markdown("<div class='tm-panel-title'>임팩트 위치 (페이스)</div>",unsafe_allow_html=True); st.pyplot(impact_face_fig(club_summary.get('Avg_ImpactOffset_mm'),club_summary.get('Avg_ImpactHeight_mm'),selected_club,club_df,figsize=(7.4,3.9)),clear_figure=True)
         with cols[1]: st.markdown("<div class='tm-panel-title'>클럽 패스</div>",unsafe_allow_html=True); st.pyplot(club_path_fig(avgrow,figsize=(5,3.9)),clear_figure=True)
         with cols[2]: st.markdown("<div class='tm-panel-title'>다이나믹 로프트 / 스핀 로프트</div>",unsafe_allow_html=True); st.pyplot(loft_spin_fig(avgrow,figsize=(5,3.9)),clear_figure=True)
-    with tabs[1]: st.scatter_chart(df_view[['Carry_m','TotalSide_m','Club']].dropna(),x='Carry_m',y='TotalSide_m',color='Club',use_container_width=True)
+    with tabs[1]:
+        scatter_df = df_view[["Carry_m", "TotalSide_m", "Club"]].copy()
+        scatter_df["Carry_m"] = pd.to_numeric(scatter_df["Carry_m"], errors="coerce")
+        scatter_df["TotalSide_m"] = pd.to_numeric(scatter_df["TotalSide_m"], errors="coerce")
+        scatter_df["Club"] = scatter_df["Club"].astype(str)
+        scatter_df = scatter_df.dropna(subset=["Carry_m", "TotalSide_m"])
+        st.scatter_chart(
+            safe_dataframe_for_streamlit(scatter_df),
+            x="Carry_m",
+            y="TotalSide_m",
+            color="Club",
+            use_container_width=True,
+        )
     with tabs[2]: render_distance_chart(summary)
     with tabs[3]: st.pyplot(club_path_fig(_period_row(club_df,club_summary,selected_club,'전체 샷 평균')),clear_figure=True)
     with tabs[4]:
-        sc=[c for c in ['StrokeNo','Date','ShotTimeLocal','Carry_m','Total_m','BallSpeed_mps','ClubSpeed_mps','SmashFactor','SpinRate_rpm','AttackAngle_deg','ClubPath_deg','FaceAngle_deg','FaceToPath_deg','TotalSide_m','ImpactOffset_mm','ImpactHeight_mm'] if c in club_df.columns]
-        st.dataframe(club_df[sc],use_container_width=True,hide_index=True)
+        sc = [
+            c
+            for c in [
+                "StrokeNo",
+                "Date",
+                "ShotTimeLocal",
+                "Carry_m",
+                "Total_m",
+                "BallSpeed_mps",
+                "ClubSpeed_mps",
+                "SmashFactor",
+                "SpinRate_rpm",
+                "AttackAngle_deg",
+                "ClubPath_deg",
+                "FaceAngle_deg",
+                "FaceToPath_deg",
+                "TotalSide_m",
+                "ImpactOffset_mm",
+                "ImpactHeight_mm",
+            ]
+            if c in club_df.columns
+        ]
+        shot_list_df = safe_dataframe_for_streamlit(
+            club_df.loc[:, sc].reset_index(drop=True)
+        )
+        st.dataframe(shot_list_df, width="stretch", hide_index=True)
 else:
     club=st.sidebar.selectbox('1. 클럽 선택',clubs,index=0); club_dates=sorted(df[df['Club']==club]['Date'].dropna().unique().tolist()); selected_date=st.sidebar.selectbox('분석 날짜',club_dates,index=len(club_dates)-1)
     st.sidebar.markdown('### 2. 비교 기준'); scope=st.sidebar.radio('비교 범위',['월간 평균 + 연간 평균','월간 평균만','연간 평균만'],label_visibility='collapsed')
