@@ -152,6 +152,117 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
+# -----------------------------------------------------------------------------
+# Google OIDC 로그인 + 허용 이메일 제한
+# -----------------------------------------------------------------------------
+def _allowed_emails() -> set[str]:
+    """Secrets의 ALLOWED_EMAILS를 소문자 이메일 집합으로 변환합니다."""
+    try:
+        raw = st.secrets.get("ALLOWED_EMAILS", [])
+    except Exception:
+        raw = []
+
+    if isinstance(raw, str):
+        raw = [part.strip() for part in raw.split(",")]
+
+    return {
+        str(email).strip().lower()
+        for email in raw
+        if str(email).strip()
+    }
+
+
+def _render_login_screen() -> None:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] { display: none; }
+        .tm-login-wrap {
+            max-width: 520px;
+            margin: 12vh auto 0 auto;
+            padding: 38px 40px;
+            border: 1px solid #263548;
+            border-radius: 18px;
+            background: linear-gradient(180deg, #121f2d, #0b141e);
+            text-align: center;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .28);
+        }
+        .tm-login-logo {
+            color: #f3f7fb;
+            font-size: 1.45rem;
+            font-weight: 850;
+            letter-spacing: .02em;
+            margin-bottom: 18px;
+        }
+        .tm-login-orange { color: #ff6b35; }
+        .tm-login-title {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .tm-login-sub {
+            color: #aab7c7;
+            line-height: 1.7;
+            margin-bottom: 22px;
+        }
+        </style>
+        <div class="tm-login-wrap">
+          <div class="tm-login-logo"><span class="tm-login-orange">▰</span> TRACKMAN DASHBOARD</div>
+          <div class="tm-login-title">개인 전용 대시보드</div>
+          <div class="tm-login-sub">
+            등록된 Google 계정으로 로그인해야<br>
+            TrackMan 연습 데이터를 확인할 수 있습니다.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.button(
+        "Google 계정으로 로그인",
+        type="primary",
+        use_container_width=True,
+        on_click=st.login,
+    )
+
+
+def require_authorized_google_user() -> dict[str, Any]:
+    """로그인 및 이메일 화이트리스트 검사를 통과한 사용자 정보만 반환합니다."""
+    try:
+        is_logged_in = bool(st.user.is_logged_in)
+    except Exception:
+        st.error("Google 로그인 설정을 읽지 못했습니다. Streamlit Secrets의 [auth] 설정을 확인해 주세요.")
+        st.stop()
+
+    if not is_logged_in:
+        _render_login_screen()
+        st.stop()
+
+    user = st.user.to_dict()
+    email = str(user.get("email", "")).strip().lower()
+    allowed = _allowed_emails()
+
+    if not allowed:
+        st.error("ALLOWED_EMAILS가 설정되지 않아 접근을 차단했습니다.")
+        st.caption("Streamlit Secrets에 ALLOWED_EMAILS = [\"your-email@gmail.com\"] 형식으로 추가해 주세요.")
+        st.button("로그아웃", on_click=st.logout)
+        st.stop()
+
+    if not email or email not in allowed:
+        st.error("이 Google 계정은 앱 사용 권한이 없습니다.")
+        if email:
+            st.caption(f"로그인 계정: {email}")
+        st.button("다른 계정으로 로그인", on_click=st.logout)
+        st.stop()
+
+    return user
+
+
+AUTH_USER = require_authorized_google_user()
+AUTH_EMAIL = str(AUTH_USER.get("email", ""))
+AUTH_NAME = str(AUTH_USER.get("name", "사용자"))
 CSS = """
 <style>
 
@@ -1281,6 +1392,13 @@ if "cloud_restore_checked" not in st.session_state:
 
 storage_status = storage.status(check_cloud=True)
 
+st.sidebar.markdown("### 👤 로그인 사용자")
+st.sidebar.caption(AUTH_NAME)
+st.sidebar.caption(AUTH_EMAIL)
+if st.sidebar.button("로그아웃", width="stretch"):
+    st.logout()
+
+st.sidebar.divider()
 st.sidebar.markdown("## 데이터 관리 v2.1")
 st.sidebar.metric("저장된 연습", f"{storage_status.report_count}회")
 if storage_status.last_sync is not None:
