@@ -415,6 +415,160 @@ hr { border-color:#223044; margin: 1.2rem 0; }
 .tm-legend{display:flex;gap:18px;justify-content:flex-end;color:#c8d4e1;font-size:.85rem;margin-bottom:10px}.tm-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}.tm-dot-day{background:#3d94ff}.tm-dot-month{background:#67cf45}.tm-dot-year{background:#aa76f2}
 @media(max-width:1200px){.tm-compare-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}}
 
+
+/* ============================================================
+   Mobile responsive layout (v3.0)
+   ============================================================ */
+.tm-shot-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 768px) {
+  /* Main page spacing */
+  .block-container {
+    padding-top: .75rem !important;
+    padding-bottom: 1.25rem !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+    max-width: 100% !important;
+  }
+
+  /* Sidebar: larger touch targets and compact spacing */
+  section[data-testid="stSidebar"] > div {
+    padding-top: .75rem !important;
+  }
+  [data-testid="stSidebar"] .stButton > button,
+  [data-testid="stSidebar"] [data-testid="stDownloadButton"] > button {
+    min-height: 46px !important;
+    font-size: .92rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Stack all Streamlit columns vertically on phones */
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap !important;
+    gap: .65rem !important;
+  }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Header / navigation */
+  .tm-topbar {
+    gap: 8px;
+    min-height: 40px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .tm-logo { font-size: 1.05rem !important; }
+  .tm-title { font-size: 1.25rem !important; margin: 4px 0 10px !important; }
+  .tm-pill { padding: 6px 9px; font-size: .78rem; margin-right: 2px; }
+
+  /* KPI cards: 2 columns on normal phones */
+  .tm-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 8px 0 18px !important;
+  }
+  .tm-kpi-card {
+    min-height: 88px;
+    padding: 11px 12px;
+    border-radius: 9px;
+  }
+  .tm-kpi-label {
+    font-size: 12px;
+    margin-bottom: 8px;
+    white-space: normal;
+  }
+  .tm-kpi-value { font-size: 22px; }
+  .tm-kpi-unit { font-size: 11px; margin-left: 2px; }
+
+  /* Custom comparison cards */
+  .tm-compare-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .tm-compare-card { padding: 12px; }
+  .tm-compare-value { font-size: 1.18rem; }
+  .tm-legend {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    font-size: .76rem;
+  }
+
+  /* Club cards and panels */
+  .tm-card {
+    min-height: auto;
+    padding: 12px 13px;
+  }
+  .tm-card .big { font-size: 1.35rem; }
+  .tm-panel { padding: 12px; }
+
+  /* Tabs become horizontally scrollable instead of squeezed */
+  .stTabs [data-baseweb="tab-list"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
+  .stTabs [data-baseweb="tab"] {
+    flex: 0 0 auto !important;
+    height: 42px;
+    padding: 0 16px;
+    font-size: .82rem;
+    white-space: nowrap;
+  }
+
+  /* Selects, radios and buttons: comfortable touch size */
+  [data-baseweb="select"] > div { min-height: 44px !important; }
+  .stButton > button { min-height: 44px; }
+  [data-testid="stRadio"] label { min-height: 38px; align-items: center; }
+
+  /* Wide shot detail table stays usable via horizontal swipe */
+  .tm-shot-card {
+    padding: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tm-shot-grid { min-width: 1180px; }
+  .tm-shot-item { padding: 5px 9px; }
+
+  /* Charts/images fill phone width without overflowing */
+  [data-testid="stImage"] img,
+  [data-testid="stPlotlyChart"],
+  [data-testid="stVegaLiteChart"],
+  [data-testid="stPyplotGlobalUse"] {
+    max-width: 100% !important;
+  }
+
+  /* Dataframe horizontal swipe */
+  [data-testid="stDataFrame"] {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+
+  /* Reduce heading sizes */
+  h1 { font-size: 1.45rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1.05rem !important; margin-top: 1rem !important; }
+}
+
+@media (max-width: 390px) {
+  .tm-kpi-grid { grid-template-columns: 1fr !important; }
+  .tm-kpi-card { min-height: 78px; }
+  .tm-kpi-label { margin-bottom: 5px; }
+  .tm-kpi-value { font-size: 21px; }
+  .tm-compare-values { gap: 4px; }
+  .tm-compare-value { font-size: 1.05rem; }
+  .block-container {
+    padding-left: .55rem !important;
+    padding-right: .55rem !important;
+  }
+}
+
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -1399,7 +1553,7 @@ if st.sidebar.button("로그아웃", width="stretch"):
     st.logout()
 
 st.sidebar.divider()
-st.sidebar.markdown("## 데이터 관리 v2.1")
+st.sidebar.markdown("## 데이터 관리 v3.0 · 모바일")
 st.sidebar.metric("저장된 연습", f"{storage_status.report_count}회")
 if storage_status.last_sync is not None:
     st.sidebar.caption(f"마지막 동기화: {storage_status.last_sync.astimezone().strftime('%Y-%m-%d %H:%M')}")
