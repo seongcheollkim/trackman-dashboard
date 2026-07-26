@@ -393,10 +393,73 @@ hr { border-color:#223044; margin: 1.2rem 0; }
 .tm-panel-title {font-weight:800; color:#f5f8fd; font-size:1.05rem; margin-bottom:8px;}
 .tm-muted {color:#9aaabd; font-size:.87rem;}
 .tm-shot-card { border:1px solid #263548; border-radius:12px; background:linear-gradient(180deg,#111e2b,#0d1721); padding:15px 18px; }
-.tm-shot-grid {display:grid; grid-template-columns: 90px repeat(11, minmax(70px,1fr)) 160px 90px; gap:0; align-items:stretch;}
-.tm-shot-item {border-left:1px solid #223044; padding:5px 12px; min-height:68px;}
-.tm-shot-label {color:#aab7c7; font-size:.78rem; margin-bottom:6px;}
-.tm-shot-value {color:#f4f8ff; font-size:1.35rem; font-weight:800; line-height:1.1;}
+.tm-shot-detail-shell {border:1px solid #263548;border-radius:12px;background:linear-gradient(180deg,#111e2b,#0d1721);padding:10px 12px;margin:6px 0 8px;}
+.tm-shot-detail-shell .tm-shot-card {border:0;background:transparent;padding:4px 0;}
+.tm-shot-grid {
+  width:100%;
+  background:transparent;
+}
+.tm-shot-row {
+  display:grid;
+  grid-template-columns:repeat(9, minmax(108px, 1fr));
+  align-items:stretch;
+  width:100%;
+}
+.tm-shot-row + .tm-shot-row { margin-top:-1px; }
+.tm-shot-row .tm-shot-item {
+  border:1px solid #3a4f67 !important;
+  margin-right:-1px;
+  background:linear-gradient(180deg,#111e2b,#0d1721);
+}
+.tm-shot-row:first-child .tm-shot-item:first-child { border-top-left-radius:9px; }
+.tm-shot-row:first-child .tm-shot-item:last-child { border-top-right-radius:9px; }
+.tm-shot-row:last-child .tm-shot-item:first-child { border-bottom-left-radius:9px; }
+.tm-shot-row:last-child .tm-shot-item:last-child { border-bottom-right-radius:9px; }
+.tm-shot-club-only {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:72px;
+}
+.tm-detail-filter-hint{color:#93a5b8;font-size:.72rem;text-align:center;margin-top:5px;line-height:1.35;}
+.tm-dark-table-wrap{border:1px solid #263548;border-radius:12px;overflow:auto;max-height:560px;background:#0d1721;}
+.tm-dark-table{width:100%;border-collapse:collapse;min-width:980px;color:#e8eef6;font-size:.82rem;}
+.tm-dark-table th{position:sticky;top:0;z-index:2;background:#142232;color:#c9d5e3;padding:9px 10px;border-right:1px solid #263548;border-bottom:1px solid #33465e;white-space:nowrap;text-align:center;}
+.tm-dark-table td{padding:8px 10px;border-right:1px solid #223044;border-bottom:1px solid #1d2b3b;white-space:nowrap;text-align:right;}
+.tm-dark-table td:first-child,.tm-dark-table td:nth-child(2),.tm-dark-table td:nth-child(3),.tm-dark-table td:nth-child(4){text-align:left;}
+.tm-dark-table tbody tr:nth-child(even){background:#101c29;}
+.tm-dark-table tbody tr:hover{background:#17283a;}
+.tm-dark-table tbody tr.tm-selected-row{background:#17395d!important;box-shadow:inset 4px 0 0 #ff6b1a;}
+.tm-dark-table tbody tr.tm-selected-row td{color:#ffffff;font-weight:700;}
+.tm-filter-group-title{font-size:.95rem;font-weight:900;color:#ff7a29!important;margin:14px 0 7px;padding:9px 2px 2px;border-top:1px solid #4a5d72;letter-spacing:.01em;}
+.tm-range-caption{color:#91a4b7;font-size:.75rem;margin-top:-6px;margin-bottom:6px;}
+
+.tm-shot-item {
+  border:0 !important;
+  padding:8px 10px;
+  min-height:72px;
+  min-width:0;
+  overflow:hidden;
+  box-sizing:border-box;
+  background:linear-gradient(180deg,#111e2b,#0d1721);
+}
+.tm-shot-label {
+  color:#aab7c7;
+  font-size:.76rem;
+  line-height:1.25;
+  margin-bottom:7px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.tm-shot-value {
+  color:#f4f8ff;
+  font-size:1.27rem;
+  font-weight:800;
+  line-height:1.15;
+  white-space:nowrap;
+  letter-spacing:-.02em;
+}
+.tm-shot-unit {color:#aebdcd; font-size:.72rem; font-weight:650; margin-left:4px; vertical-align:baseline;}
 .tm-shot-sub {color:#9fb0c2; font-size:.78rem; margin-top:2px;}
 .tm-blue {color:#3d94ff!important;} .tm-red {color:#ff5c4e!important;} .tm-green{color:#52d273!important;}
 .sidebar-box {border:1px solid #223044; background:#101b27; border-radius:10px; padding:12px; margin:12px 0;}
@@ -414,6 +477,34 @@ hr { border-color:#223044; margin: 1.2rem 0; }
 .tm-good{color:#62d45a}.tm-bad{color:#ff5a50}.tm-neutral{color:#aab7c7}.tm-auto-summary{border:1px solid #263548;border-radius:12px;padding:16px 18px;background:linear-gradient(180deg,#101b27,#0c151f);line-height:1.75;color:#d8e3ee}
 .tm-legend{display:flex;gap:18px;justify-content:flex-end;color:#c8d4e1;font-size:.85rem;margin-bottom:10px}.tm-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}.tm-dot-day{background:#3d94ff}.tm-dot-month{background:#67cf45}.tm-dot-year{background:#aa76f2}
 @media(max-width:1200px){.tm-compare-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}}
+
+
+.tm-shot-nav {
+  display:grid;
+  grid-template-columns:120px minmax(220px,1fr) 120px;
+  gap:12px;
+  align-items:end;
+  margin:8px 0 16px;
+}
+.tm-shot-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:4px 0 10px;
+}
+.tm-shot-heading-title {font-size:1.18rem;font-weight:800;color:#f4f8ff}
+.tm-shot-heading-sub {font-size:.85rem;color:#9fb0c2}
+.tm-shot-compare-grid{display:grid;grid-template-columns:repeat(4,minmax(190px,1fr));gap:12px;margin:10px 0 18px}
+.tm-shot-compare-card{border:1px solid #263548;border-radius:10px;background:linear-gradient(180deg,#111e2b,#0d1721);padding:13px 14px}
+.tm-shot-compare-title{font-weight:800;color:#f3f7fb;font-size:.95rem;margin-bottom:10px}
+.tm-shot-compare-values{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-items:end}
+.tm-shot-compare-value{font-size:1.14rem;font-weight:800;line-height:1.1}
+.tm-shot-current{color:#ff8a32}.tm-shot-day{color:#3d94ff}.tm-shot-month{color:#67cf45}.tm-shot-year{color:#aa76f2}
+.tm-shot-compare-label{color:#93a5b8;font-size:.68rem;margin-top:4px}
+.tm-shot-deltas{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:10px;padding-top:8px;border-top:1px solid #223044;font-size:.72rem}
+@media(max-width:1200px){.tm-shot-compare-grid{grid-template-columns:repeat(2,minmax(190px,1fr))}}
 
 
 /* ============================================================
@@ -533,7 +624,8 @@ hr { border-color:#223044; margin: 1.2rem 0; }
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .tm-shot-grid { min-width: 1180px; }
+  .tm-shot-grid { min-width: 0; }
+  .tm-shot-row { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .tm-shot-item { padding: 5px 9px; }
 
   /* Charts/images fill phone width without overflowing */
@@ -553,6 +645,11 @@ hr { border-color:#223044; margin: 1.2rem 0; }
   /* Reduce heading sizes */
   h1 { font-size: 1.45rem !important; }
   h2 { font-size: 1.25rem !important; }
+  .tm-shot-nav { grid-template-columns:1fr 1fr; }
+  .tm-shot-nav > :nth-child(2) { grid-column:1 / -1; grid-row:1; }
+  .tm-shot-compare-grid { grid-template-columns:1fr !important; gap:8px !important; }
+  .tm-shot-compare-value { font-size:1rem; }
+  .tm-shot-deltas { grid-template-columns:1fr; }
   h3 { font-size: 1.05rem !important; margin-top: 1rem !important; }
 }
 
@@ -567,6 +664,117 @@ hr { border-color:#223044; margin: 1.2rem 0; }
     padding-left: .55rem !important;
     padding-right: .55rem !important;
   }
+}
+
+.tm-distribution-header {
+  height: 34px;
+  display: flex;
+  align-items: flex-end;
+}
+.tm-distribution-header .tm-panel-title {
+  margin: 0 !important;
+}
+.tm-distribution-control-spacer {
+  height: 38px;
+}
+
+
+
+/* Sidebar: text, controls and action buttons must stay readable on dark UI. */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+  color:#eef4fb !important;
+}
+[data-testid="stSidebar"] details summary,
+[data-testid="stSidebar"] details summary p,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  color:#ff8a32 !important;
+  font-weight:850 !important;
+}
+[data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+  color:#b5c4d6 !important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label p,
+[data-testid="stSidebar"] [data-baseweb="checkbox"] p {
+  color:#f4f7fb !important;
+  font-weight:650 !important;
+}
+/* Prevent white buttons with white text (logout / reset included). */
+[data-testid="stSidebar"] .stButton > button,
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+  background:linear-gradient(180deg,#ff812d,#ef5d0e) !important;
+  color:#ffffff !important;
+  border:1px solid #ff9b54 !important;
+  font-weight:800 !important;
+  box-shadow:0 3px 12px rgba(255,107,26,.18) !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+  background:linear-gradient(180deg,#ff9348,#ff6b1a) !important;
+  color:#ffffff !important;
+  border-color:#ffc08b !important;
+}
+[data-testid="stSidebar"] .stButton > button:disabled {
+  background:#263548 !important;
+  color:#9fb0c2 !important;
+  border-color:#405066 !important;
+}
+
+/* BaseWeb popover is mounted outside the Streamlit app tree. Style the portal itself. */
+div[data-baseweb="popover"],
+div[data-baseweb="popover"] > div,
+div[data-baseweb="popover"] [role="dialog"],
+[data-testid="stPopoverBody"] {
+  background:#0d1721 !important;
+  color:#eef4fb !important;
+  border-color:#31445a !important;
+}
+div[data-baseweb="popover"] h1,
+div[data-baseweb="popover"] h2,
+div[data-baseweb="popover"] h3,
+div[data-baseweb="popover"] h4,
+div[data-baseweb="popover"] p,
+div[data-baseweb="popover"] label,
+div[data-baseweb="popover"] span,
+div[data-baseweb="popover"] [data-testid="stMarkdownContainer"],
+[data-testid="stPopoverBody"] h4,
+[data-testid="stPopoverBody"] p,
+[data-testid="stPopoverBody"] label {
+  color:#f4f7fb !important;
+}
+div[data-baseweb="popover"] [data-baseweb="checkbox"] p,
+div[data-baseweb="popover"] [data-baseweb="checkbox"] span,
+[data-testid="stPopoverBody"] [data-baseweb="checkbox"] p {
+  color:#ffffff !important;
+  font-weight:700 !important;
+  opacity:1 !important;
+}
+div[data-baseweb="popover"] .tm-filter-group-title,
+[data-testid="stPopoverBody"] .tm-filter-group-title {
+  color:#ff7a29 !important;
+  border-top:1px solid #40546b !important;
+  font-weight:900 !important;
+  background:#101c28 !important;
+  padding:9px 8px !important;
+  margin:10px -4px 5px !important;
+  border-radius:6px !important;
+}
+div[data-baseweb="popover"] .stButton > button,
+[data-testid="stPopoverBody"] .stButton > button {
+  background:#172638 !important;
+  color:#ffffff !important;
+  border:1px solid #4b6078 !important;
+  font-weight:800 !important;
+}
+div[data-baseweb="popover"] .stButton > button:hover {
+  border-color:#ff7a29 !important;
+  color:#ff9a55 !important;
 }
 
 </style>
@@ -1292,7 +1500,7 @@ def club_path_fig(row, figsize=(5.0, 3.9)):
 
 
 def loft_spin_fig(row, figsize=(5.0, 3.9)):
-    """고품질 TrackMan 스타일 다이나믹 로프트 / 스핀 로프트 패널."""
+    """고품질 TrackMan 스타일 런치 앵글 / 스핀 로프트 패널."""
     fig, ax = plt.subplots(figsize=figsize, dpi=190)
     fig.patch.set_facecolor("#0b141e")
     ax.set_facecolor("#0b141e")
@@ -1302,6 +1510,7 @@ def loft_spin_fig(row, figsize=(5.0, 3.9)):
 
     club = row.get("Club", "Driver")
     attack = pd.to_numeric(pd.Series([row.get("AttackAngle_deg")]), errors="coerce").iloc[0]
+    launch_angle = pd.to_numeric(pd.Series([row.get("LaunchAngle_deg")]), errors="coerce").iloc[0]
     dynamic_loft = pd.to_numeric(pd.Series([row.get("DynamicLoft_deg")]), errors="coerce").iloc[0]
     spin_loft_source = pd.to_numeric(pd.Series([row.get("SpinLoft_deg")]), errors="coerce").iloc[0]
     spin_rate = pd.to_numeric(pd.Series([row.get("SpinRate_rpm")]), errors="coerce").iloc[0]
@@ -1324,9 +1533,9 @@ def loft_spin_fig(row, figsize=(5.0, 3.9)):
         y0,y1 = math.tan(ar)*x0*.40, math.tan(ar)*x1*.40
         ax.plot([x0,x1],[y0,y1],color="#2f8cff",lw=2.5,zorder=6)
 
-    # Dynamic loft line and spin loft fan
-    if not pd.isna(dynamic_loft):
-        l_vis = float(np.clip(dynamic_loft*.85,-8,32))
+    # Launch angle line and spin loft fan
+    if not pd.isna(launch_angle):
+        l_vis = float(np.clip(launch_angle*.85,-8,32))
         lr = math.radians(l_vis)
         x0,x1 = .22,.78
         ly0,ly1 = 0, math.tan(lr)*(x1-x0)*.85
@@ -1339,8 +1548,8 @@ def loft_spin_fig(row, figsize=(5.0, 3.9)):
     def val(v, unit="°", nd=1):
         return "-" if pd.isna(v) else f"{float(v):.{nd}f}{unit}"
 
-    ax.text(-1.00,.60,"DYNAMIC LOFT",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(-1.00,.40,val(dynamic_loft),color="#f5f8fb",fontsize=17.5,fontweight="bold")
+    ax.text(-1.00,.60,"LAUNCH ANGLE",color="#dce4ec",fontsize=8.8,fontweight="bold")
+    ax.text(-1.00,.40,val(launch_angle),color="#f5f8fb",fontsize=17.5,fontweight="bold")
 
     ax.text(.52,.60,"SPIN RATE",color="#dce4ec",fontsize=8.8,fontweight="bold")
     spin_text = "-" if pd.isna(spin_rate) else f"{int(round(float(spin_rate))):,} rpm"
@@ -1390,15 +1599,383 @@ def render_distance_chart(summary):
     st.bar_chart(chart.set_index("Club")[["Avg_Carry_m","Avg_Total_m"]], use_container_width=True)
 
 
-def shot_detail_html(row):
-    vals = [
-        ("캐리", fmt(row.get('Carry_m'),1), "m"), ("토탈", fmt(row.get('Total_m'),1), "m"), ("볼 스피드", fmt(row.get('BallSpeed_mps'),1), "m/s"),
-        ("클럽 스피드", fmt(row.get('ClubSpeed_mps'),1), "m/s"), ("스매시 팩터", fmt(row.get('SmashFactor'),2), ""), ("발사각", fmt(row.get('LaunchAngle_deg'),1), "°"),
-        ("스핀", fmt(row.get('SpinRate_rpm'),0), "rpm"), ("사이드", side_text(row.get('TotalSide_m')), "m"), ("클럽 패스", fmt(row.get('ClubPath_deg'),1), "°"),
-        ("페이스 앵글", fmt(row.get('FaceAngle_deg'),1), "°"), ("페이스 투 패스", fmt(row.get('FaceToPath_deg'),1), "°"),
+SHOT_DETAIL_DEFAULT_FIELDS = [
+    "Carry_m", "Total_m", "BallSpeed_mps", "ClubSpeed_mps", "SmashFactor",
+    "LaunchAngle_deg", "SpinRate_rpm", "TotalSide_m", "ClubPath_deg",
+    "FaceAngle_deg", "FaceToPath_deg",
+]
+
+SHOT_DETAIL_FIELD_META: dict[str, tuple[str, str, int, str]] = {
+    "StrokeNo": ("샷 번호", "", 0, "number"),
+    "Carry_m": ("캐리", "m", 1, "number"),
+    "Total_m": ("토탈", "m", 1, "number"),
+    "Run_m": ("런", "m", 1, "number"),
+    "BallSpeed_mps": ("볼 스피드", "m/s", 1, "number"),
+    "ClubSpeed_mps": ("클럽 스피드", "m/s", 1, "number"),
+    "SmashFactor": ("스매시 팩터", "", 2, "number"),
+    "SpinRate_rpm": ("스핀량", "rpm", 0, "comma"),
+    "LaunchAngle_deg": ("발사각", "°", 1, "number"),
+    "AttackAngle_deg": ("어택 앵글", "°", 1, "number"),
+    "ClubPath_deg": ("클럽 패스", "°", 1, "signed_angle"),
+    "FaceAngle_deg": ("페이스 앵글", "°", 1, "signed_angle"),
+    "FaceToPath_deg": ("페이스 투 패스", "°", 1, "signed_angle"),
+    "DynamicLoft_deg": ("다이나믹 로프트", "°", 1, "number"),
+    "DynamicLoftAngle_deg": ("다이나믹 로프트", "°", 1, "number"),
+    "SpinLoft_deg": ("스핀 로프트", "°", 1, "number"),
+    "SpinLoftAngle_deg": ("스핀 로프트", "°", 1, "number"),
+    "TotalSide_m": ("사이드", "m", 1, "side"),
+    "AbsTotalSide_m": ("절대 좌우 편차", "m", 1, "number"),
+    "MaxHeight_m": ("최고점", "m", 1, "number"),
+    "ImpactOffset_mm": ("임팩트 좌우", "mm", 1, "number"),
+    "ImpactHeight_mm": ("임팩트 높이", "mm", 1, "number"),
+}
+
+SHOT_DETAIL_EXCLUDED_FIELDS = {
+    "SideText", "AbsTotalSide_m", "StrokeGroups", "Raw", "raw", "SourceFile",
+    # 화면 분석에 불필요한 식별자/메타데이터
+    "Date", "StrokeTime", "ShotTimeLocal", "Club", "ClubName",
+    "GroupID", "GroupId", "groupid", "GroupClub", "GroupClup", "groupclub", "groupclup",
+    "StrokeID", "StrokeId", "strokeid",
+    "MeasurementKind", "measurementkind",
+}
+
+SHOT_DETAIL_EXCLUDED_NORMALIZED = {
+    "date", "time", "stroktime", "shottimelocal", "club", "clubname",
+    "groupid", "groupclub", "groupclup", "strokeid", "measurementkind",
+}
+
+
+def _shot_detail_label(column: str) -> str:
+    if column in SHOT_DETAIL_FIELD_META:
+        return SHOT_DETAIL_FIELD_META[column][0]
+    label = column.replace("_mps", "").replace("_rpm", "").replace("_deg", "")
+    label = label.replace("_mm", "").replace("_m", "").replace("_s", "")
+    return label.replace("_", " ")
+
+
+def _shot_detail_available_fields(row: pd.Series) -> list[str]:
+    """현재 샷에 실제 값이 존재하는 상세 데이터 컬럼을 화면 표시 순서로 반환합니다."""
+    preferred = list(SHOT_DETAIL_FIELD_META)
+    remaining = [str(column) for column in row.index if str(column) not in preferred]
+    candidates = preferred + remaining
+    fields: list[str] = []
+    for column in candidates:
+        normalized_column = "".join(ch for ch in str(column).lower() if ch.isalnum())
+        if (
+            column in SHOT_DETAIL_EXCLUDED_FIELDS
+            or normalized_column in SHOT_DETAIL_EXCLUDED_NORMALIZED
+            or column not in row.index
+        ):
+            continue
+        value = row.get(column)
+        try:
+            if value is None or pd.isna(value):
+                continue
+        except (TypeError, ValueError):
+            if value is None:
+                continue
+        if isinstance(value, (dict, list, tuple, set, np.ndarray)):
+            continue
+        fields.append(column)
+    return fields
+
+
+def _format_shot_detail_field(row: pd.Series, column: str) -> tuple[str, str, str]:
+    label, unit, nd, display_type = SHOT_DETAIL_FIELD_META.get(
+        column,
+        (_shot_detail_label(column), "", 1, "auto"),
+    )
+    value = row.get(column)
+    if display_type == "text":
+        return label, str(value), unit
+    if display_type == "side":
+        return label, side_text(value), unit
+    if display_type == "comma":
+        return label, fmt_int(value, comma=True), unit
+    if display_type == "signed_angle":
+        number = _safe_numeric(value)
+        if pd.isna(number):
+            return label, "-", unit
+        direction = "R" if number > 0.05 else "L" if number < -0.05 else ""
+        return label, f"{abs(number):.{nd}f}{direction}", unit
+
+    if display_type == "number":
+        return label, fmt(value, nd), unit
+
+    # 메타데이터가 없는 숫자 컬럼도 접미사에 따라 단위를 자동 추론합니다.
+    if column.endswith("_mps"):
+        unit = "m/s"
+    elif column.endswith("_rpm"):
+        unit = "rpm"
+    elif column.endswith("_deg"):
+        unit = "°"
+    elif column.endswith("_mm"):
+        unit = "mm"
+    elif column.endswith("_m"):
+        unit = "m"
+    elif column.endswith("_s"):
+        unit = "s"
+
+    number = _safe_numeric(value)
+    if not pd.isna(number):
+        if unit == "rpm":
+            return label, f"{int(round(number)):,}", unit
+        return label, f"{number:.1f}", unit
+    return label, str(value), unit
+
+
+def shot_detail_html(row: pd.Series, selected_fields: list[str]) -> str:
+    """상세 수치를 9칸 단위로 표시하고, 첫 카드는 클럽 약어만 보여줍니다."""
+    vals = [_format_shot_detail_field(row, column) for column in selected_fields if column in row.index]
+
+    club = row.get("Club")
+    club_item = (
+        "<div class='tm-shot-item tm-shot-club-only'>"
+        f"<div style='font-weight:900;color:{CLUB_COLORS.get(club, '#4aa3ff')};font-size:1.55rem;line-height:1;'>"
+        f"{SHORT_CLUB.get(club, club)}</div>"
+        "</div>"
+    )
+
+    metric_items = [
+        "<div class='tm-shot-item'>"
+        f"<div class='tm-shot-label'>{label}</div>"
+        "<div class='tm-shot-value'>"
+        f"{value}"
+        + (f"<span class='tm-shot-unit'>{unit}</span>" if unit else "")
+        + "</div></div>"
+        for label, value, unit in vals
     ]
-    items = "".join([f"<div class='tm-shot-item'><div class='tm-shot-label'>{a}</div><div class='tm-shot-value'>{b}</div><div class='tm-shot-sub'>{c}</div></div>" for a,b,c in vals])
-    return f"<div class='tm-shot-card'><div class='tm-shot-grid'><div class='tm-shot-item' style='border-left:0;'><div style='font-weight:800;color:{CLUB_COLORS.get(row.get('Club'),'#4aa3ff')};font-size:1.2rem;'>{SHORT_CLUB.get(row.get('Club'),row.get('Club'))}</div><div class='tm-shot-label'>{row.get('Club')}</div><div class='tm-shot-sub'>{row.get('ShotTimeLocal','')}</div></div>{items}</div></div>"
+
+    # 첫 행에는 클럽 약어 카드가 포함됩니다. 이후 행에는 실제 항목만 배치하여
+    # 남는 칸이 별도 색으로 채워지지 않도록 합니다.
+    all_items = [club_item] + metric_items
+    rows = []
+    for start in range(0, len(all_items), 9):
+        rows.append("<div class='tm-shot-row'>" + "".join(all_items[start:start + 9]) + "</div>")
+
+    return "<div class='tm-shot-card'><div class='tm-shot-grid'>" + "".join(rows) + "</div></div>"
+
+
+SHOT_DETAIL_FIELD_GROUPS = {
+    "거리": ["Carry_m", "Total_m", "Run_m", "TotalSide_m", "AbsTotalSide_m"],
+    "스피드": ["BallSpeed_mps", "ClubSpeed_mps", "SmashFactor"],
+    "볼 비행": ["LaunchAngle_deg", "SpinRate_rpm", "MaxHeight_m"],
+    "클럽/스윙 방향": ["ClubPath_deg", "FaceAngle_deg", "FaceToPath_deg"],
+    "임팩트 / 기타": [
+        "AttackAngle_deg", "DynamicLoft_deg", "DynamicLoftAngle_deg",
+        "SpinLoft_deg", "SpinLoftAngle_deg", "ImpactOffset_mm", "ImpactHeight_mm",
+    ],
+}
+
+
+def _detail_field_group(field: str) -> str:
+    for group, fields in SHOT_DETAIL_FIELD_GROUPS.items():
+        if field in fields:
+            return group
+    return "기타 데이터"
+
+
+def render_dark_dataframe(
+    source_df: pd.DataFrame,
+    max_rows: int = 500,
+    selected_row: int | None = None,
+) -> None:
+    """Streamlit 테마와 일치하는 다크 HTML 테이블을 렌더링합니다."""
+    import html as html_lib
+
+    if source_df is None or source_df.empty:
+        st.info("표시할 데이터가 없습니다.")
+        return
+
+    safe_df = safe_dataframe_for_streamlit(source_df.head(max_rows)).copy()
+
+    def display_value(value: Any) -> str:
+        if value is None:
+            return "-"
+        try:
+            if pd.isna(value):
+                return "-"
+        except (TypeError, ValueError):
+            pass
+        if isinstance(value, float):
+            return f"{value:.3f}".rstrip("0").rstrip(".")
+        return str(value)
+
+    headers = "".join(
+        f"<th>{html_lib.escape(str(column))}</th>"
+        for column in safe_df.columns
+    )
+    body_rows: list[str] = []
+    for row_position, (_, row) in enumerate(safe_df.iterrows()):
+        selected_class = " class='tm-selected-row'" if selected_row == row_position else ""
+        cells = "".join(
+            f"<td>{html_lib.escape(display_value(row[column]))}</td>"
+            for column in safe_df.columns
+        )
+        body_rows.append(f"<tr{selected_class}>{cells}</tr>")
+
+    table_html = (
+        "<div class='tm-dark-table-wrap'>"
+        "<table class='tm-dark-table'>"
+        f"<thead><tr>{headers}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table></div>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
+    if len(source_df) > max_rows:
+        st.caption(
+            f"성능을 위해 앞의 {max_rows:,}개 행만 표시했습니다. "
+            "전체 행은 CSV 다운로드로 확인할 수 있습니다."
+        )
+
+
+def _numeric_range(series: pd.Series) -> tuple[float, float] | None:
+    values = pd.to_numeric(series, errors="coerce").dropna()
+    if values.empty:
+        return None
+    low, high = float(values.min()), float(values.max())
+    if low == high:
+        pad = max(abs(low) * .05, 1.0)
+        return low - pad, high + pad
+    return low, high
+
+
+def _apply_numeric_range(df_source: pd.DataFrame, column: str, selected_range: tuple[float, float]) -> pd.DataFrame:
+    if column not in df_source.columns:
+        return df_source
+    values = pd.to_numeric(df_source[column], errors="coerce")
+    low, high = selected_range
+    return df_source[values.between(low, high, inclusive="both")]
+
+
+def _detail_checkbox_key(state_suffix: str, field: str) -> str:
+    return f"detail_check::{state_suffix}::{field}"
+
+
+def _sync_detail_selection_from_checkboxes(
+    state_suffix: str,
+    selection_key: str,
+    available_fields: list[str],
+) -> None:
+    """체크박스 상태를 상세 카드 선택 목록에 즉시 반영합니다."""
+    st.session_state[selection_key] = [
+        field
+        for field in available_fields
+        if bool(st.session_state.get(_detail_checkbox_key(state_suffix, field), False))
+    ]
+
+
+def _set_detail_selection(
+    state_suffix: str,
+    selection_key: str,
+    available_fields: list[str],
+    selected_fields: list[str],
+) -> None:
+    """기본값/모두 표시 버튼에서 체크박스와 카드 상태를 동시에 갱신합니다."""
+    selected_set = set(selected_fields)
+    st.session_state[selection_key] = [
+        field for field in available_fields if field in selected_set
+    ]
+    for field in available_fields:
+        st.session_state[_detail_checkbox_key(state_suffix, field)] = field in selected_set
+
+
+def render_shot_detail_panel(row: pd.Series, state_suffix: str) -> None:
+    """상세 데이터 카드와 이퀄라이저 모양의 표시 항목 설정 팝오버를 렌더링합니다."""
+    available_fields = _shot_detail_available_fields(row)
+    default_fields = [field for field in SHOT_DETAIL_DEFAULT_FIELDS if field in available_fields]
+    selection_key = f"shot_detail_fields::{state_suffix}"
+
+    # 선택 목록을 현재 샷에서 실제 사용할 수 있는 필드로 정리합니다.
+    existing_selection = st.session_state.get(selection_key)
+    if existing_selection is None:
+        current_selection = list(default_fields)
+    else:
+        current_selection = [field for field in existing_selection if field in available_fields]
+        if not current_selection:
+            current_selection = list(default_fields)
+    st.session_state[selection_key] = current_selection
+
+    # 체크박스는 value 인자를 사용하지 않고 Session State로만 초기화합니다.
+    # 이렇게 해야 "default value + Session State" 중복 경고가 발생하지 않습니다.
+    selected_set = set(current_selection)
+    for field in available_fields:
+        checkbox_key = _detail_checkbox_key(state_suffix, field)
+        if checkbox_key not in st.session_state:
+            st.session_state[checkbox_key] = field in selected_set
+
+    with st.container(border=False):
+        st.markdown("<div class='tm-shot-detail-shell'>", unsafe_allow_html=True)
+        detail_col, filter_col = st.columns([12.2, 1.05], vertical_alignment="center")
+
+        with detail_col:
+            # 체크박스 on_change 콜백이 rerun 전에 selection_key를 갱신하므로
+            # 클릭 직후 현재 선택 항목이 빠짐없이 표시됩니다.
+            selected_fields = list(st.session_state.get(selection_key, default_fields))
+            st.markdown(shot_detail_html(row, selected_fields), unsafe_allow_html=True)
+
+        with filter_col:
+            with st.popover("☷", help="상세 데이터 표시 항목 설정", width="stretch"):
+                st.markdown(
+                    "<h4 style='color:#ff8a32;margin:0 0 6px 0'>상세 데이터 필터</h4>",
+                    unsafe_allow_html=True,
+                )
+                st.caption("체크한 데이터만 상세 카드에 표시됩니다.")
+
+                action_left, action_right = st.columns(2)
+                with action_left:
+                    st.button(
+                        "기본값",
+                        key=f"detail_default::{state_suffix}",
+                        width="stretch",
+                        on_click=_set_detail_selection,
+                        args=(state_suffix, selection_key, available_fields, default_fields),
+                    )
+                with action_right:
+                    st.button(
+                        "모두 표시",
+                        key=f"detail_all::{state_suffix}",
+                        width="stretch",
+                        on_click=_set_detail_selection,
+                        args=(state_suffix, selection_key, available_fields, available_fields),
+                    )
+
+                grouped: dict[str, list[str]] = {}
+                for field in available_fields:
+                    grouped.setdefault(_detail_field_group(field), []).append(field)
+
+                group_order = [
+                    "거리",
+                    "스피드",
+                    "볼 비행",
+                    "클럽/스윙 방향",
+                    "임팩트 / 기타",
+                    "기타 데이터",
+                ]
+                for group_name in group_order:
+                    fields = grouped.get(group_name, [])
+                    if not fields:
+                        continue
+                    st.markdown(
+                        f"<div class='tm-filter-group-title'>{group_name}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for field in fields:
+                        st.checkbox(
+                            _shot_detail_label(field),
+                            key=_detail_checkbox_key(state_suffix, field),
+                            on_change=_sync_detail_selection_from_checkboxes,
+                            args=(state_suffix, selection_key, available_fields),
+                        )
+
+                selected_count = len(st.session_state.get(selection_key, []))
+                st.caption(f"현재 {selected_count}개 / 전체 {len(available_fields)}개 표시")
+
+            st.markdown(
+                "<div class='tm-detail-filter-hint'>상세 데이터<br>추가·삭제</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 
@@ -1461,47 +2038,134 @@ def _render_compare_cards(day,month,year):
 def _period_row(raw,summary,club,mode):
     return pd.Series({'Club':club,'ClubPath_deg':summary.get('Avg_Path_deg'),'FaceAngle_deg':summary.get('Avg_Face_deg'),'FaceToPath_deg':summary.get('Avg_FaceToPath_deg'),'AttackAngle_deg':summary.get('Avg_Attack_deg'),'DynamicLoft_deg':_raw_avg(raw,club,['DynamicLoft_deg','DynamicLoft','DynamicLoftAngle_deg'],mode),'SpinLoft_deg':_raw_avg(raw,club,['SpinLoft_deg','SpinLoft','SpinLoftAngle_deg'],mode),'SpinRate_rpm':summary.get('Avg_Spin_rpm')})
 
-def _carry_chart(day,month,year,club):
-    fig,ax=plt.subplots(figsize=(5.8,3),dpi=150); fig.patch.set_facecolor('#101b27'); ax.set_facecolor('#101b27')
-    data=[('선택일',day,'#3d94ff'),('월간',month,'#67cf45'),('연간',year,'#aa76f2')]
-    vals=[]
-    for _,d,_ in data: vals.extend(d[d['Club']==club]['Carry_m'].dropna().tolist())
-    if not vals: st.info('캐리 데이터 없음'); return
-    xs=np.linspace(min(vals)-8,max(vals)+8,220)
-    for label,d,color in data:
-        v=d[d['Club']==club]['Carry_m'].dropna()
-        if len(v)<2: continue
-        mu=float(v.mean()); sd=max(float(v.std(ddof=0)),2)
-        y=np.exp(-.5*((xs-mu)/sd)**2)/sd; ax.plot(xs,y,color=color,lw=2,label=label); ax.axvline(mu,color=color,ls='--',lw=.8,alpha=.7)
-    ax.legend(frameon=False,labelcolor='#cbd6e5',fontsize=8); ax.set_yticks([]); ax.tick_params(colors='#aab7c7',labelsize=7); ax.set_xlabel('Carry (m)',color='#aab7c7')
-    for s in ax.spines.values(): s.set_color('#263548')
-    st.pyplot(fig,clear_figure=True)
+def _distance_chart(day, month, year, club, metric="Carry_m"):
+    label_map = {"Carry_m": "Carry", "Total_m": "Total"}
+    metric_label = label_map.get(metric, metric)
+    fig, ax = plt.subplots(figsize=(5.4, 3.2), dpi=150)
+    fig.patch.set_facecolor('#101b27')
+    ax.set_facecolor('#101b27')
+    data = [('선택일', day, '#3d94ff'), ('월간', month, '#67cf45'), ('연간', year, '#aa76f2')]
+    vals = []
+    for _, d, _ in data:
+        if metric in d.columns:
+            vals.extend(pd.to_numeric(d[d['Club'] == club][metric], errors='coerce').dropna().tolist())
+    if not vals:
+        st.info(f'{metric_label} 데이터 없음')
+        plt.close(fig)
+        return
+    xs = np.linspace(min(vals) - 8, max(vals) + 8, 220)
+    for label, d, color in data:
+        if metric not in d.columns:
+            continue
+        v = pd.to_numeric(d[d['Club'] == club][metric], errors='coerce').dropna()
+        if len(v) < 2:
+            continue
+        mu = float(v.mean())
+        sd = max(float(v.std(ddof=0)), 2)
+        y = np.exp(-.5 * ((xs - mu) / sd) ** 2) / sd
+        ax.plot(xs, y, color=color, lw=2, label=label)
+        ax.axvline(mu, color=color, ls='--', lw=.8, alpha=.7)
+    ax.legend(frameon=False, labelcolor='#cbd6e5', fontsize=8)
+    ax.set_yticks([])
+    ax.tick_params(colors='#aab7c7', labelsize=7)
+    ax.set_xlabel(f'{metric_label} (m)', color='#aab7c7')
+    for spine in ax.spines.values():
+        spine.set_color('#263548')
+    st.pyplot(fig, clear_figure=True)
 
-def _side_chart(day,month,year,club):
-    fig,ax=plt.subplots(figsize=(5,3),dpi=150); fig.patch.set_facecolor('#101b27'); ax.set_facecolor('#101b27'); rng=np.random.default_rng(7)
-    for label,d,color in [('선택일',day,'#3d94ff'),('월간',month,'#67cf45'),('연간',year,'#aa76f2')]:
-        v=d[d['Club']==club]['TotalSide_m'].dropna()
-        if v.empty: continue
-        ax.scatter(v,rng.normal(0,.045,len(v)),s=12,color=color,alpha=.45,label=label)
-        mu=float(v.mean()); sd=float(v.std(ddof=0)) if len(v)>1 else 2
-        ax.add_patch(patches.Ellipse((mu,0),max(sd*4,4),.22,fill=False,edgecolor=color,lw=1.1))
-    ax.axvline(0,color='#d8e0ea',ls='--',lw=.8,alpha=.55); ax.set_xlim(-45,45); ax.set_ylim(-.2,.2); ax.set_yticks([]); ax.set_xlabel('Side (m)',color='#aab7c7'); ax.tick_params(colors='#aab7c7',labelsize=7); ax.legend(frameon=False,labelcolor='#cbd6e5',fontsize=7)
-    for s in ax.spines.values(): s.set_color('#263548')
-    st.pyplot(fig,clear_figure=True)
+def _side_chart(day, month, year, club, metric="Carry_m"):
+    """선택 거리 기준으로 선택일/월간/연간 탄착군을 비교합니다."""
+    metric_label = "캐리" if metric == "Carry_m" else "토탈"
+    fig, ax = plt.subplots(figsize=(5.4, 3.2), dpi=150)
+    fig.patch.set_facecolor('#101b27')
+    ax.set_facecolor('#101b27')
 
-def _trend(df_all,club,year,mode):
-    ds=pd.to_datetime(df_all['Date'],errors='coerce'); part=df_all[(df_all['Club']==club)&(ds.dt.year==year)].copy(); rec=[]
-    for m in range(1,13):
-        x=part[pd.to_datetime(part['Date']).dt.month==m]
-        if x.empty: continue
-        rec.append((m,_summary(x,club,mode).get('Avg_Carry_m')))
-    if not rec: st.info('추세 데이터 없음'); return
-    fig,ax=plt.subplots(figsize=(5.8,3),dpi=150); fig.patch.set_facecolor('#101b27'); ax.set_facecolor('#101b27')
-    ax.plot([x for x,_ in rec],[y for _,y in rec],marker='o',lw=2,color='#ff7a29')
-    for x,y in rec: ax.text(x,y+.7,fmt_int(y),color='#e8eef5',fontsize=7,ha='center')
-    ax.set_xticks([x for x,_ in rec],[f'{x}월' for x,_ in rec]); ax.tick_params(colors='#aab7c7',labelsize=7); ax.set_ylabel('Carry (m)',color='#aab7c7'); ax.grid(axis='y',color='#263548',alpha=.45)
-    for s in ax.spines.values(): s.set_color('#263548')
-    st.pyplot(fig,clear_figure=True)
+    has_data = False
+    for label, data, color in [
+        ('선택일', day, '#3d94ff'),
+        ('월간', month, '#67cf45'),
+        ('연간', year, '#aa76f2'),
+    ]:
+        if metric not in data.columns or 'TotalSide_m' not in data.columns:
+            continue
+        part = data[data['Club'] == club][['TotalSide_m', metric]].copy()
+        part['TotalSide_m'] = pd.to_numeric(part['TotalSide_m'], errors='coerce')
+        part[metric] = pd.to_numeric(part[metric], errors='coerce')
+        part = part.dropna()
+        if part.empty:
+            continue
+        has_data = True
+        ax.scatter(part['TotalSide_m'], part[metric], s=14, color=color, alpha=.42, label=label)
+
+        if len(part) >= 2:
+            x_mean = float(part['TotalSide_m'].mean())
+            y_mean = float(part[metric].mean())
+            x_std = max(float(part['TotalSide_m'].std(ddof=0)), 1.5)
+            y_std = max(float(part[metric].std(ddof=0)), 2.0)
+            ax.add_patch(
+                patches.Ellipse(
+                    (x_mean, y_mean),
+                    width=x_std * 4.0,
+                    height=y_std * 4.0,
+                    fill=False,
+                    edgecolor=color,
+                    lw=1.1,
+                    alpha=.9,
+                )
+            )
+
+    if not has_data:
+        st.info(f'{metric_label} 탄착군 데이터 없음')
+        plt.close(fig)
+        return
+
+    ax.axvline(0, color='#d8e0ea', lw=1.0, alpha=.75)
+    x_values = []
+    for data in (day, month, year):
+        if 'TotalSide_m' in data.columns:
+            x_values.extend(pd.to_numeric(data[data['Club'] == club]['TotalSide_m'], errors='coerce').dropna().tolist())
+    x_limit = max(10, int(math.ceil(max([abs(v) for v in x_values] or [10]) / 5.0) * 5))
+    ax.set_xlim(-x_limit, x_limit)
+    ax.set_xticks(range(-x_limit, x_limit + 1, 5))
+    ax.grid(True, color='#314154', alpha=.38, linestyle='--', linewidth=.7)
+    ax.set_xlabel('좌우 편차 (m)', color='#aab7c7')
+    ax.set_ylabel(f'{metric_label} 거리 (m)', color='#aab7c7')
+    ax.tick_params(colors='#aab7c7', labelsize=7)
+    ax.legend(frameon=False, labelcolor='#cbd6e5', fontsize=7)
+    for spine in ax.spines.values():
+        spine.set_color('#263548')
+    st.pyplot(fig, clear_figure=True)
+
+def _trend(df_all, club, year, mode, metric="Carry_m"):
+    """선택한 캐리/토탈 기준으로 월별 거리 추세를 표시합니다."""
+    metric_label = "캐리" if metric == "Carry_m" else "토탈"
+    summary_column = "Avg_Carry_m" if metric == "Carry_m" else "Avg_Total_m"
+    ds = pd.to_datetime(df_all['Date'], errors='coerce')
+    part = df_all[(df_all['Club'] == club) & (ds.dt.year == year)].copy()
+    rec = []
+    for month_number in range(1, 13):
+        month_part = part[pd.to_datetime(part['Date']).dt.month == month_number]
+        if month_part.empty:
+            continue
+        value = _summary(month_part, club, mode).get(summary_column)
+        if value is not None and not pd.isna(value):
+            rec.append((month_number, float(value)))
+    if not rec:
+        st.info(f'{metric_label} 추세 데이터 없음')
+        return
+    fig, ax = plt.subplots(figsize=(5.4, 3.2), dpi=150)
+    fig.patch.set_facecolor('#101b27')
+    ax.set_facecolor('#101b27')
+    ax.plot([x for x, _ in rec], [y for _, y in rec], marker='o', lw=2, color='#ff7a29')
+    for x, y in rec:
+        ax.text(x, y + .7, fmt_int(y), color='#e8eef5', fontsize=7, ha='center')
+    ax.set_xticks([x for x, _ in rec], [f'{x}월' for x, _ in rec])
+    ax.tick_params(colors='#aab7c7', labelsize=7)
+    ax.set_ylabel(f'{metric_label} (m)', color='#aab7c7')
+    ax.grid(axis='y', color='#263548', alpha=.45)
+    for spine in ax.spines.values():
+        spine.set_color('#263548')
+    st.pyplot(fig, clear_figure=True)
 
 def _auto_text(day,month,year,club):
     def d(col,b):
@@ -1515,10 +2179,510 @@ def _auto_text(day,month,year,club):
     if spin is not None: t.append(f'스핀량은 연간 대비 <b>{spin:+.0f}rpm</b>입니다.')
     return ' '.join(t)
 
-# Header / Navigation
-h1,h2=st.columns([2.0,1.2])
-with h1: st.markdown("<div class='tm-logo' style='padding-top:8px'><span class='tm-orange'>▰</span> TRACKMAN DASHBOARD</div>",unsafe_allow_html=True)
-with h2: view_mode=st.radio('화면',['상세 분석','기간 비교'],horizontal=True,label_visibility='collapsed')
+
+
+def _safe_numeric(value: Any) -> float:
+    """샷/평균 비교에 사용할 값을 안전하게 float로 변환합니다."""
+    try:
+        result = float(value)
+        return result if math.isfinite(result) else float("nan")
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _shot_sort_columns(df_shots: pd.DataFrame) -> list[str]:
+    """데이터에 실제로 존재하는 컬럼만 사용해 샷 순서를 정합니다."""
+    return [column for column in ["Date", "StrokeTime", "StrokeNo"] if column in df_shots.columns]
+
+
+def _shot_display_number(row: pd.Series, fallback_index: int) -> str:
+    stroke_no = _safe_numeric(row.get("StrokeNo"))
+    if not pd.isna(stroke_no):
+        return str(int(round(stroke_no)))
+    return str(fallback_index + 1)
+
+
+def _shot_value(row: pd.Series, candidates: list[str]) -> float:
+    for column in candidates:
+        if column in row.index:
+            value = _safe_numeric(row.get(column))
+            if not pd.isna(value):
+                return value
+    return float("nan")
+
+
+def _shot_metric_items(row: pd.Series) -> list[tuple[str, str, str]]:
+    """선택한 한 샷의 핵심 지표를 상단 KPI 형식으로 반환합니다."""
+    return [
+        ("캐리", fmt_int(row.get("Carry_m")), "m"),
+        ("토탈", fmt_int(row.get("Total_m")), "m"),
+        ("런", fmt_int(row.get("Run_m")), "m"),
+        ("볼 스피드", fmt(row.get("BallSpeed_mps"), 1), "m/s"),
+        ("클럽 스피드", fmt(row.get("ClubSpeed_mps"), 1), "m/s"),
+        ("스매시 팩터", fmt(row.get("SmashFactor"), 2), ""),
+        ("스핀량", fmt_int(row.get("SpinRate_rpm"), comma=True), "rpm"),
+        ("발사각", fmt(row.get("LaunchAngle_deg"), 1), "°"),
+        ("사이드", side_text(row.get("TotalSide_m")), "m"),
+    ]
+
+
+def _format_compare_value(value: Any, nd: int) -> str:
+    number = _safe_numeric(value)
+    if pd.isna(number):
+        return "-"
+    if nd == 0:
+        return f"{int(round(number)):,}"
+    return f"{number:.{nd}f}"
+
+
+def _format_shot_delta(shot_value: Any, average_value: Any, unit: str, nd: int, lower_is_better: bool) -> tuple[str, str]:
+    shot_number = _safe_numeric(shot_value)
+    average_number = _safe_numeric(average_value)
+    if pd.isna(shot_number) or pd.isna(average_number):
+        return "-", "tm-neutral"
+
+    delta = shot_number - average_number
+    if abs(delta) < 1e-9:
+        css = "tm-neutral"
+    else:
+        improved = delta < 0 if lower_is_better else delta > 0
+        css = "tm-good" if improved else "tm-bad"
+
+    sign = "+" if delta > 0 else ""
+    if nd == 0:
+        return f"{sign}{int(round(delta)):,}{unit}", css
+    return f"{sign}{delta:.{nd}f}{unit}", css
+
+
+def _shot_compare_card(
+    title: str,
+    shot_value: Any,
+    day_value: Any,
+    month_value: Any,
+    year_value: Any,
+    unit: str = "",
+    nd: int = 1,
+    lower_is_better: bool = False,
+) -> str:
+    day_delta, day_css = _format_shot_delta(shot_value, day_value, unit, nd, lower_is_better)
+    month_delta, month_css = _format_shot_delta(shot_value, month_value, unit, nd, lower_is_better)
+    year_delta, year_css = _format_shot_delta(shot_value, year_value, unit, nd, lower_is_better)
+    return (
+        "<div class='tm-shot-compare-card'>"
+        f"<div class='tm-shot-compare-title'>{title}<span style='float:right;color:#9fb0c2;font-weight:500'>{unit}</span></div>"
+        "<div class='tm-shot-compare-values'>"
+        f"<div><div class='tm-shot-compare-value tm-shot-current'>{_format_compare_value(shot_value, nd)}</div><div class='tm-shot-compare-label'>선택 샷</div></div>"
+        f"<div><div class='tm-shot-compare-value tm-shot-day'>{_format_compare_value(day_value, nd)}</div><div class='tm-shot-compare-label'>당일 평균</div></div>"
+        f"<div><div class='tm-shot-compare-value tm-shot-month'>{_format_compare_value(month_value, nd)}</div><div class='tm-shot-compare-label'>월간 평균</div></div>"
+        f"<div><div class='tm-shot-compare-value tm-shot-year'>{_format_compare_value(year_value, nd)}</div><div class='tm-shot-compare-label'>연간 평균</div></div>"
+        "</div>"
+        "<div class='tm-shot-deltas'>"
+        f"<span>vs 당일 <b class='{day_css}'>{day_delta}</b></span>"
+        f"<span>vs 월간 <b class='{month_css}'>{month_delta}</b></span>"
+        f"<span>vs 연간 <b class='{year_css}'>{year_delta}</b></span>"
+        "</div></div>"
+    )
+
+
+def _render_shot_compare_cards(row: pd.Series, day_summary: pd.Series, month_summary: pd.Series, year_summary: pd.Series) -> None:
+    """Step 3: 선택 샷을 당일·월간·연간 평균과 비교합니다."""
+    definitions = [
+        ("캐리", ["Carry_m"], "Avg_Carry_m", "m", 0, False),
+        ("토탈", ["Total_m"], "Avg_Total_m", "m", 0, False),
+        ("볼 스피드", ["BallSpeed_mps"], "Avg_BallSpeed_mps", "m/s", 1, False),
+        ("클럽 스피드", ["ClubSpeed_mps"], "Avg_ClubSpeed_mps", "m/s", 1, False),
+        ("스매시 팩터", ["SmashFactor"], "Avg_Smash", "", 2, False),
+        ("스핀량", ["SpinRate_rpm"], "Avg_Spin_rpm", "rpm", 0, False),
+        ("발사각", ["LaunchAngle_deg"], "Avg_Launch_deg", "°", 1, False),
+        ("좌우 편차", ["AbsTotalSide_m", "TotalSide_m"], "Avg_AbsSide_m", "m", 1, True),
+    ]
+    cards = []
+    for title, raw_columns, summary_column, unit, nd, lower_is_better in definitions:
+        shot_number = _shot_value(row, raw_columns)
+        if title == "좌우 편차" and "AbsTotalSide_m" not in row.index:
+            shot_number = abs(shot_number) if not pd.isna(shot_number) else shot_number
+        cards.append(
+            _shot_compare_card(
+                title,
+                shot_number,
+                day_summary.get(summary_column),
+                month_summary.get(summary_column),
+                year_summary.get(summary_column),
+                unit,
+                nd,
+                lower_is_better,
+            )
+        )
+    st.markdown("<div class='tm-shot-compare-grid'>" + "".join(cards) + "</div>", unsafe_allow_html=True)
+
+
+def _shot_table(df_shots: pd.DataFrame, selected_index: int, key: str) -> int:
+    """샷 목록을 앱의 다크 테마로 표시합니다. 샷 선택은 위 슬라이더/버튼과 연동됩니다."""
+    table_columns = [
+        "StrokeNo", "ShotTimeLocal", "Carry_m", "Total_m", "BallSpeed_mps",
+        "ClubSpeed_mps", "SmashFactor", "SpinRate_rpm", "LaunchAngle_deg",
+        "AttackAngle_deg", "ClubPath_deg", "FaceAngle_deg", "FaceToPath_deg",
+        "TotalSide_m", "ImpactOffset_mm", "ImpactHeight_mm",
+    ]
+    available = [column for column in table_columns if column in df_shots.columns]
+    table_df = df_shots.loc[:, available].copy().reset_index(drop=True)
+    table_df.insert(0, "선택", ["▶" if idx == selected_index else "" for idx in range(len(table_df))])
+    render_dark_dataframe(table_df, selected_row=selected_index)
+    st.caption("샷 변경은 위의 이전/다음 버튼 또는 샷 선택 슬라이더를 사용하세요.")
+    return selected_index
+
+
+def _club_korean_name(club: str) -> str:
+    """내부 클럽 코드를 화면용 한글 클럽명으로 변환합니다."""
+    mapping = {
+        "Driver": "드라이버",
+        "3Wood": "3번 우드",
+        "5Wood": "5번 우드",
+        "7Wood": "7번 우드",
+        "4Hybrid": "4번 유틸리티",
+        "5Hybrid": "5번 유틸리티",
+        "4Iron": "4번 아이언",
+        "5Iron": "5번 아이언",
+        "6Iron": "6번 아이언",
+        "7Iron": "7번 아이언",
+        "8Iron": "8번 아이언",
+        "9Iron": "9번 아이언",
+        "PitchingWedge": "피칭 웨지",
+        "50Wedge": "50도 웨지",
+        "52Wedge": "52도 웨지",
+        "56Wedge": "56도 웨지",
+        "SandWedge": "샌드 웨지",
+    }
+    return mapping.get(str(club), str(club))
+
+
+def _render_single_shot_distance_distribution(shots: pd.DataFrame, selected_index: int, metric: str) -> None:
+    """당일 샷의 거리 분포를 평균 분석과 같은 부드러운 곡선으로 표시합니다."""
+    label = "Carry" if metric == "Carry_m" else "Total"
+    if metric not in shots.columns:
+        st.info(f"{label} 데이터가 없습니다.")
+        return
+
+    values = pd.to_numeric(shots[metric], errors="coerce").dropna()
+    if values.empty:
+        st.info(f"{label} 데이터가 없습니다.")
+        return
+
+    selected_value = _safe_numeric(shots.iloc[selected_index].get(metric))
+    avg = float(values.mean())
+    spread = float(values.std(ddof=0)) if len(values) >= 2 else 0.0
+    bandwidth = max(spread, 2.0)
+
+    xmin = float(values.min())
+    xmax = float(values.max())
+    if not pd.isna(selected_value):
+        xmin = min(xmin, float(selected_value))
+        xmax = max(xmax, float(selected_value))
+    padding = max(8.0, (xmax - xmin) * 0.18)
+    xs = np.linspace(xmin - padding, xmax + padding, 260)
+
+    # 샷별 가우시안 커널을 합쳐 작은 표본에서도 자연스러운 KDE 곡선을 만듭니다.
+    density = np.zeros_like(xs, dtype=float)
+    for value in values.to_numpy(dtype=float):
+        density += np.exp(-0.5 * ((xs - value) / bandwidth) ** 2)
+    density /= max(len(values) * bandwidth, 1e-9)
+
+    fig, ax = plt.subplots(figsize=(6.1, 3.2), dpi=160)
+    fig.patch.set_facecolor('#101b27')
+    ax.set_facecolor('#101b27')
+    ax.plot(xs, density, color='#3d94ff', lw=2.5, label=f'당일 {label}')
+    ax.fill_between(xs, density, 0, color='#3d94ff', alpha=.12)
+    ax.axvline(avg, color='#67cf45', ls='--', lw=1.8, label=f'당일 평균 {avg:.0f}m')
+    if not pd.isna(selected_value):
+        ax.axvline(selected_value, color='#ff7a29', lw=2.8, label=f'선택 샷 {selected_value:.0f}m')
+
+    ax.set_xlabel(f'{label} (m)', color='#aab7c7')
+    ax.set_yticks([])
+    ax.tick_params(colors='#aab7c7', labelsize=8)
+    ax.grid(axis='x', color='#263548', alpha=.25)
+    ax.legend(frameon=False, labelcolor='#d8e3ee', fontsize=8, loc='upper left')
+    for spine in ax.spines.values():
+        spine.set_color('#263548')
+    st.pyplot(fig, clear_figure=True)
+
+
+def _render_blinking_direction_distribution(
+    shots: pd.DataFrame,
+    selected_index: int,
+    distance_metric: str = "Carry_m",
+) -> None:
+    """당일 전체 샷과 선택 샷을 좌우 편차/거리 탄착군으로 표시합니다."""
+    if "TotalSide_m" not in shots.columns:
+        st.info("방향성 데이터가 없습니다.")
+        return
+
+    work = shots.copy()
+    work["TotalSide_m"] = pd.to_numeric(work["TotalSide_m"], errors="coerce")
+    requested_metric = distance_metric if distance_metric in {"Carry_m", "Total_m"} else "Carry_m"
+    y_metric = requested_metric if requested_metric in work.columns else ("Carry_m" if "Carry_m" in work.columns else None)
+
+    if y_metric:
+        work[y_metric] = pd.to_numeric(work[y_metric], errors="coerce")
+        work = work.dropna(subset=["TotalSide_m", y_metric])
+    else:
+        work = work.dropna(subset=["TotalSide_m"])
+        work["_y"] = np.arange(len(work), dtype=float)
+        y_metric = "_y"
+
+    if work.empty:
+        st.info("방향성 데이터가 없습니다.")
+        return
+
+    selected_original_index = shots.index[selected_index]
+
+    width, height = 700, 330
+    pad_l, pad_r, pad_t, pad_b = 62, 24, 28, 52
+
+    max_abs_side = max(10.0, float(work["TotalSide_m"].abs().max()) + 3.0)
+    axis_limit = max(10, int(math.ceil(max_abs_side / 5.0) * 5))
+    xmin, xmax = -float(axis_limit), float(axis_limit)
+
+    ymin = float(work[y_metric].min())
+    ymax = float(work[y_metric].max())
+    y_padding = max(4.0, (ymax - ymin) * 0.12)
+    if abs(ymax - ymin) < 1e-9:
+        ymin -= 1.0
+        ymax += 1.0
+    else:
+        ymin -= y_padding
+        ymax += y_padding
+
+    def sx(x: float) -> float:
+        return pad_l + (float(x) - xmin) / (xmax - xmin) * (width - pad_l - pad_r)
+
+    def sy(y: float) -> float:
+        return pad_t + (ymax - float(y)) / (ymax - ymin) * (height - pad_t - pad_b)
+
+    # Golfzon 분포도처럼 중앙을 기준으로 5m 간격 세로 기준선과 수치 라벨을 표시합니다.
+    grid_lines: list[str] = []
+    grid_labels: list[str] = []
+    for side_value in range(-axis_limit, axis_limit + 1, 5):
+        x = sx(side_value)
+        if side_value == 0:
+            stroke = "#dbe5ef"
+            opacity = ".82"
+            dash = ""
+            line_width = "1.5"
+        else:
+            stroke = "#4a5a6d"
+            opacity = ".58"
+            dash = "stroke-dasharray='4 4'"
+            line_width = "1"
+
+        grid_lines.append(
+            f"<line x1='{x:.1f}' y1='{pad_t}' x2='{x:.1f}' y2='{height-pad_b}' "
+            f"stroke='{stroke}' stroke-width='{line_width}' opacity='{opacity}' {dash}/>"
+        )
+
+        if side_value < 0:
+            label = f"{abs(side_value)}L"
+            fill = "#ff6259"
+        elif side_value > 0:
+            label = f"{side_value}R"
+            fill = "#4aa3ff"
+        else:
+            label = "0"
+            fill = "#dbe5ef"
+
+        grid_labels.append(
+            f"<text x='{x:.1f}' y='{height-17}' fill='{fill}' font-size='11.5' "
+            f"font-weight='700' text-anchor='middle'>{label}</text>"
+        )
+
+    # 거리축은 실제 m 값을 읽을 수 있도록 보기 좋은 간격의 가로선과 라벨을 표시합니다.
+    horizontal_lines: list[str] = []
+    distance_span = max(ymax - ymin, 1.0)
+    raw_step = distance_span / 5.0
+    if raw_step <= 5:
+        y_step = 5
+    elif raw_step <= 10:
+        y_step = 10
+    elif raw_step <= 20:
+        y_step = 20
+    elif raw_step <= 25:
+        y_step = 25
+    else:
+        y_step = 50
+    first_tick = int(math.floor(ymin / y_step) * y_step)
+    last_tick = int(math.ceil(ymax / y_step) * y_step)
+    for distance_value in range(first_tick, last_tick + y_step, y_step):
+        if distance_value < ymin or distance_value > ymax:
+            continue
+        y = sy(distance_value)
+        horizontal_lines.append(
+            f"<line x1='{pad_l}' y1='{y:.1f}' x2='{width-pad_r}' y2='{y:.1f}' "
+            "stroke='#314154' stroke-width='1' opacity='.50'/>"
+            f"<text x='{pad_l-8}' y='{y+4:.1f}' fill='#aab7c7' font-size='11' "
+            f"text-anchor='end'>{distance_value}</text>"
+        )
+
+    circles: list[str] = []
+    selected_svg = ""
+    for idx, row in work.iterrows():
+        cx, cy = sx(row["TotalSide_m"]), sy(row[y_metric])
+        if idx == selected_original_index:
+            selected_svg = (
+                f"<circle class='tm-blink-shot' cx='{cx:.1f}' cy='{cy:.1f}' r='9'/>"
+                f"<circle cx='{cx:.1f}' cy='{cy:.1f}' r='4.5' fill='#fff4df'/>"
+            )
+        else:
+            circles.append(
+                f"<circle cx='{cx:.1f}' cy='{cy:.1f}' r='4.6' "
+                "fill='#4aa3ff' fill-opacity='.68'/>"
+            )
+
+    avg_side = float(work["TotalSide_m"].mean())
+    avg_x = sx(avg_side)
+    avg_label = f"{abs(avg_side):.1f}{'R' if avg_side > 0.05 else 'L' if avg_side < -0.05 else ''}"
+
+    svg = f"""
+    <style>
+    @keyframes tmShotBlink {{
+      0%,100% {{ r:8; opacity:1; stroke-width:3; }}
+      50% {{ r:16; opacity:.25; stroke-width:7; }}
+    }}
+    .tm-blink-shot {{
+      fill:#ff7a29;
+      stroke:#ffd2ad;
+      animation:tmShotBlink 1.05s ease-in-out infinite;
+      transform-origin:center;
+    }}
+    </style>
+    <div style='border:1px solid #263548;border-radius:12px;background:#101b27;padding:6px 8px 2px;overflow-x:auto'>
+      <svg viewBox='0 0 {width} {height}' width='100%' style='min-width:360px;display:block'>
+        <rect x='0' y='0' width='{width}' height='{height}' fill='#101b27'/>
+        {''.join(horizontal_lines)}
+        {''.join(grid_lines)}
+        <line x1='{avg_x:.1f}' y1='{pad_t}' x2='{avg_x:.1f}' y2='{height-pad_b}'
+              stroke='#67cf45' stroke-width='1.5' stroke-dasharray='5 4' opacity='.92'/>
+        <line x1='{pad_l}' y1='{height-pad_b}' x2='{width-pad_r}' y2='{height-pad_b}' stroke='#39495c'/>
+        {''.join(circles)}
+        {selected_svg}
+        {''.join(grid_labels)}
+        <text x='{pad_l}' y='{pad_t+14}' fill='#cbd6e5' font-size='12'>{'캐리' if y_metric == 'Carry_m' else '토탈'} 거리 (m)</text>
+        <text x='{avg_x+5:.1f}' y='{pad_t+29}' fill='#67cf45' font-size='12' font-weight='700'>평균 {avg_label}</text>
+        <text x='{width/2:.1f}' y='{height-2}' fill='#9fb0c2' font-size='12' text-anchor='middle'>좌우 편차 (m)</text>
+      </svg>
+    </div>
+    """
+    st.markdown(svg, unsafe_allow_html=True)
+
+def render_single_shot_analysis(
+    day_df: pd.DataFrame,
+    month_df: pd.DataFrame,
+    year_df: pd.DataFrame,
+    club: str,
+    selected_date: str,
+    day_summary: pd.Series,
+    month_summary: pd.Series,
+    year_summary: pd.Series,
+) -> None:
+    """Step 1~3: 개별 샷 탐색, 목록 선택, 기간 평균 비교를 한 화면에 렌더링합니다."""
+    shots = day_df[day_df["Club"] == club].copy()
+    sort_columns = _shot_sort_columns(shots)
+    if sort_columns:
+        shots = shots.sort_values(sort_columns, kind="stable")
+    shots = shots.reset_index(drop=True)
+
+    if shots.empty:
+        st.info("선택한 날짜에 해당 클럽의 샷 데이터가 없습니다.")
+        return
+
+    state_key = f"shot_index::{club}::{selected_date}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = 0
+    st.session_state[state_key] = min(max(int(st.session_state[state_key]), 0), len(shots) - 1)
+
+    st.markdown(
+        f"<div class='tm-shot-heading'><div class='tm-shot-heading-title'>{club} 개별 샷 분석</div>"
+        f"<div class='tm-shot-heading-sub'>{selected_date} · 총 {len(shots)}샷</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    previous_col, slider_col, next_col = st.columns([0.8, 3.4, 0.8])
+    with previous_col:
+        if st.button("◀ 이전 샷", width="stretch", disabled=st.session_state[state_key] <= 0, key=f"prev::{state_key}"):
+            st.session_state[state_key] -= 1
+            st.rerun()
+    with slider_col:
+        selected_number = st.slider(
+            "샷 선택",
+            min_value=1,
+            max_value=len(shots),
+            value=st.session_state[state_key] + 1,
+            step=1,
+            key=f"slider::{state_key}",
+        )
+        slider_index = selected_number - 1
+        if slider_index != st.session_state[state_key]:
+            st.session_state[state_key] = slider_index
+            st.rerun()
+    with next_col:
+        if st.button("다음 샷 ▶", width="stretch", disabled=st.session_state[state_key] >= len(shots) - 1, key=f"next::{state_key}"):
+            st.session_state[state_key] += 1
+            st.rerun()
+
+    selected_index = st.session_state[state_key]
+    row = shots.iloc[selected_index]
+    shot_no = _shot_display_number(row, selected_index)
+    shot_time = str(row.get("ShotTimeLocal", "") or "")
+    st.caption(f"현재 선택: Shot {shot_no} · {shot_time} · {selected_index + 1}/{len(shots)}")
+
+    # Step 1: 선택 샷의 모든 핵심 수치 및 3개 시각화
+    render_top_metrics(_shot_metric_items(row))
+    render_shot_detail_panel(row, state_suffix=f"{club}::{selected_date}")
+
+    # 탄착군과 선택 샷의 임팩트/패스/로프트를 한 행에 배치해 화면 균형을 맞춥니다.
+    club_title = _club_korean_name(club)
+    visual_cols = st.columns([1.18, 0.92, 0.92, 0.92])
+    with visual_cols[0]:
+        st.markdown(f"<div class='tm-panel-title'>{club_title} 탄착군</div>", unsafe_allow_html=True)
+        _render_blinking_direction_distribution(
+            shots,
+            selected_index,
+            distance_metric="Carry_m",
+        )
+    with visual_cols[1]:
+        st.markdown("<div class='tm-panel-title'>선택 샷 임팩트 위치</div>", unsafe_allow_html=True)
+        st.pyplot(
+            impact_face_fig(
+                row.get("ImpactOffset_mm"),
+                row.get("ImpactHeight_mm"),
+                club,
+                points=None,
+                figsize=(5.0, 3.45),
+            ),
+            clear_figure=True,
+        )
+    with visual_cols[2]:
+        st.markdown("<div class='tm-panel-title'>선택 샷 클럽 패스</div>", unsafe_allow_html=True)
+        st.pyplot(club_path_fig(row, figsize=(4.8, 3.45)), clear_figure=True)
+    with visual_cols[3]:
+        st.markdown("<div class='tm-panel-title'>선택 샷 로프트 / 스핀 로프트</div>", unsafe_allow_html=True)
+        st.pyplot(loft_spin_fig(row, figsize=(4.8, 3.45)), clear_figure=True)
+
+    # Step 2: 행을 클릭하면 선택 샷 이동
+    st.markdown("### 샷 목록")
+    st.caption("표에서 한 행을 선택하면 위의 샷 상세 화면이 해당 샷으로 이동합니다.")
+    clicked_index = _shot_table(shots, selected_index, key=f"shot_table::{club}::{selected_date}")
+    if clicked_index != selected_index:
+        st.session_state[state_key] = clicked_index
+        st.rerun()
+
+    # Step 3: 선택 샷과 평균 비교
+    st.markdown("### 선택 샷 vs 당일·월간·연간 평균")
+    _render_shot_compare_cards(row, day_summary, month_summary, year_summary)
+
+# Header
+st.markdown(
+    "<div class='tm-logo' style='padding-top:8px'><span class='tm-orange'>▰</span> TRACKMAN DASHBOARD</div>",
+    unsafe_allow_html=True,
+)
 
 def _app_secret(name: str, default: str = "") -> str:
     """Streamlit Secrets를 우선 사용하고, 없으면 환경변수를 사용합니다."""
@@ -1546,14 +2710,17 @@ if "cloud_restore_checked" not in st.session_state:
 
 storage_status = storage.status(check_cloud=True)
 
+st.sidebar.markdown("## Trackman 분석")
+st.sidebar.caption("by seongcheoll.kim")
+st.sidebar.divider()
+
 st.sidebar.markdown("### 👤 로그인 사용자")
 st.sidebar.caption(AUTH_NAME)
 st.sidebar.caption(AUTH_EMAIL)
-if st.sidebar.button("로그아웃", width="stretch"):
+if st.sidebar.button("로그아웃", width="stretch", type="primary"):
     st.logout()
 
 st.sidebar.divider()
-st.sidebar.markdown("## 데이터 관리 v3.0 · 모바일")
 st.sidebar.metric("저장된 연습", f"{storage_status.report_count}회")
 if storage_status.last_sync is not None:
     st.sidebar.caption(f"마지막 동기화: {storage_status.last_sync.astimezone().strftime('%Y-%m-%d %H:%M')}")
@@ -1593,42 +2760,48 @@ if st.sidebar.button("🔄 TrackMan 데이터 동기화", width="stretch", type=
         with st.sidebar.expander("오류 내용"):
             st.code((sync_result.stderr or sync_result.stdout)[-4000:])
 
-if st.sidebar.button("☁️ Supabase에서 새로고침", width="stretch", disabled=not storage.cloud_configured):
-    with st.spinner("Supabase의 저장 데이터를 확인하는 중입니다..."):
-        pull_result = storage.pull_cloud_reports()
-    if pull_result.ok:
-        storage.write_last_sync(source="supabase_pull", details={"downloaded": pull_result.downloaded})
-        st.sidebar.success(f"클라우드 복원 완료 · 신규 {pull_result.downloaded}회")
+uploaded = []
+
+with st.sidebar.expander("⋯ 더보기", expanded=False):
+    st.caption("필요할 때만 사용하는 데이터 관리 기능입니다.")
+
+    if st.button("☁️ Supabase에서 새로고침", width="stretch", disabled=not storage.cloud_configured):
+        with st.spinner("Supabase의 저장 데이터를 확인하는 중입니다..."):
+            pull_result = storage.pull_cloud_reports()
+        if pull_result.ok:
+            storage.write_last_sync(source="supabase_pull", details={"downloaded": pull_result.downloaded})
+            st.success(f"클라우드 복원 완료 · 신규 {pull_result.downloaded}회")
+            st.cache_data.clear()
+            st.rerun()
+        else:
+            st.error("Supabase 데이터 불러오기에 실패했습니다.")
+            with st.expander("오류 내용"):
+                st.code("\n".join(pull_result.errors)[-4000:])
+
+    if st.button("⬆️ 로컬 데이터 백업", width="stretch", disabled=not storage.cloud_configured):
+        with st.spinner("로컬 보고서를 Supabase에 백업하는 중입니다..."):
+            upload_result = storage.upload_local_reports()
+        if upload_result.ok:
+            storage.write_last_sync(source="supabase_backup", details={"uploaded": upload_result.uploaded})
+            st.success(f"백업 완료 · 신규 {upload_result.uploaded}회 · 기존 {upload_result.skipped}회")
+            st.rerun()
+        else:
+            st.error("Supabase 백업에 실패했습니다.")
+            with st.expander("오류 내용"):
+                st.code("\n".join(upload_result.errors)[-4000:])
+
+    if st.button("↻ 로컬 캐시 새로고침", width="stretch"):
+        storage.invalidate_cache()
         st.cache_data.clear()
         st.rerun()
-    else:
-        st.sidebar.error("Supabase 데이터 불러오기에 실패했습니다.")
-        with st.sidebar.expander("오류 내용"):
-            st.code("\n".join(pull_result.errors)[-4000:])
 
-if st.sidebar.button("⬆️ 로컬 데이터를 Supabase에 백업", width="stretch", disabled=not storage.cloud_configured):
-    with st.spinner("로컬 보고서를 Supabase에 백업하는 중입니다..."):
-        upload_result = storage.upload_local_reports()
-    if upload_result.ok:
-        storage.write_last_sync(source="supabase_backup", details={"uploaded": upload_result.uploaded})
-        st.sidebar.success(f"백업 완료 · 신규 {upload_result.uploaded}회 · 기존 {upload_result.skipped}회")
-        st.rerun()
-    else:
-        st.sidebar.error("Supabase 백업에 실패했습니다.")
-        with st.sidebar.expander("오류 내용"):
-            st.code("\n".join(upload_result.errors)[-4000:])
-
-if st.sidebar.button("↻ 로컬 캐시 새로고침", width="stretch"):
-    storage.invalidate_cache()
-    st.cache_data.clear()
-    st.rerun()
-
-with st.sidebar.expander("JSON/CSV 직접 추가"):
+    st.markdown("##### JSON/CSV 직접 추가")
     uploaded = st.file_uploader(
         "파일 추가",
         type=["json", "csv", "txt"],
         accept_multiple_files=True,
         label_visibility="collapsed",
+        key="hidden_manual_upload",
     )
     json_uploads = [f for f in (uploaded or []) if f.name.lower().endswith((".json", ".txt"))]
     if st.button("선택한 JSON 영구 저장", width="stretch", disabled=not json_uploads):
@@ -1660,98 +2833,242 @@ if not rows:
 
 df=prepare_df(rows); clubs=sorted(df['Club'].dropna().unique().tolist(),key=club_sort_key); dates=sorted(df['Date'].dropna().unique().tolist())
 
-if view_mode=='상세 분석':
-    selected_clubs=st.sidebar.multiselect('클럽 선택',clubs,default=clubs); selected_dates=st.sidebar.multiselect('날짜 선택',dates,default=dates)
-    st.sidebar.markdown('---'); st.sidebar.markdown('### 지표 설명'); st.sidebar.caption('Offset: -는 힐, +는 토우 방향'); st.sidebar.caption('Height: -는 낮음, +는 높음'); st.sidebar.caption('Face To Path: +는 오픈, -는 클로즈')
-    df_view=df[df['Club'].isin(selected_clubs)].copy()
-    if selected_dates: df_view=df_view[df_view['Date'].isin(selected_dates)].copy()
-    if df_view.empty: st.warning('선택한 필터에 해당하는 데이터가 없습니다.'); st.stop()
-    summary=pd.DataFrame(make_summary(df_view.to_dict('records'))); summary=summary[[c for c in SUMMARY_COLUMNS if c in summary.columns]]
-    selected_club=st.selectbox('상세 분석 클럽',summary['Club'].tolist(),index=0,label_visibility='collapsed'); club_df=df_view[df_view['Club']==selected_club].sort_values(['Date','StrokeNo']).reset_index(drop=True); club_summary=summary[summary['Club']==selected_club].iloc[0]
-    st.markdown(f"<div class='tm-title'>{selected_club} - {', '.join(selected_dates[-2:]) if selected_dates else '전체'}</div>",unsafe_allow_html=True)
-    render_top_metrics([('샷 수',fmt_int(club_summary.get('Shots',len(club_df))),''),('평균 캐리',fmt_int(club_summary.get('Avg_Carry_m')),'m'),('평균 토탈',fmt_int(club_summary.get('Avg_Total_m')),'m'),('평균 런',fmt_int(club_summary.get('Avg_Run_m')),'m'),('평균 볼 스피드',fmt_int(club_summary.get('Avg_BallSpeed_mps')),'m/s'),('평균 클럽 스피드',fmt_int(club_summary.get('Avg_ClubSpeed_mps')),'m/s'),('평균 스매시 팩터',fmt(club_summary.get('Avg_Smash'),2),''),('평균 스핀량',fmt_int(club_summary.get('Avg_Spin_rpm'),comma=True),'rpm'),('평균 사이드',f"{side_text(club_summary.get('Avg_TotalSide_m',club_summary.get('Avg_AbsSide_m')))} m",'')])
-    render_club_cards(summary)
-    tabs=st.tabs(['🧭 임팩트 맵','🎯 분산도','📏 거리 분석','⛳ 스윙 궤도','☷ 샷 리스트'])
-    with tabs[0]:
-        avgrow=_period_row(club_df,club_summary,selected_club,'전체 샷 평균'); cols=st.columns([1.2,.86,.86])
-        with cols[0]: st.markdown("<div class='tm-panel-title'>임팩트 위치 (페이스)</div>",unsafe_allow_html=True); st.pyplot(impact_face_fig(club_summary.get('Avg_ImpactOffset_mm'),club_summary.get('Avg_ImpactHeight_mm'),selected_club,club_df,figsize=(7.4,3.9)),clear_figure=True)
-        with cols[1]: st.markdown("<div class='tm-panel-title'>클럽 패스</div>",unsafe_allow_html=True); st.pyplot(club_path_fig(avgrow,figsize=(5,3.9)),clear_figure=True)
-        with cols[2]: st.markdown("<div class='tm-panel-title'>다이나믹 로프트 / 스핀 로프트</div>",unsafe_allow_html=True); st.pyplot(loft_spin_fig(avgrow,figsize=(5,3.9)),clear_figure=True)
-    with tabs[1]:
-        scatter_df = df_view[["Carry_m", "TotalSide_m", "Club"]].copy()
-        scatter_df["Carry_m"] = pd.to_numeric(scatter_df["Carry_m"], errors="coerce")
-        scatter_df["TotalSide_m"] = pd.to_numeric(scatter_df["TotalSide_m"], errors="coerce")
-        scatter_df["Club"] = scatter_df["Club"].astype(str)
-        scatter_df = scatter_df.dropna(subset=["Carry_m", "TotalSide_m"])
-        st.scatter_chart(
-            safe_dataframe_for_streamlit(scatter_df),
-            x="Carry_m",
-            y="TotalSide_m",
-            color="Club",
-            use_container_width=True,
+club=st.sidebar.selectbox('1. 클럽 선택',clubs,index=0)
+club_dates=sorted(df[df['Club']==club]['Date'].dropna().unique().tolist(), reverse=True)
+selected_date=st.sidebar.selectbox('분석 날짜',club_dates,index=0)
+st.sidebar.markdown('### 2. 비교 기준')
+scope=st.sidebar.radio('비교 범위',['월간 평균 + 연간 평균','월간 평균만','연간 평균만'],label_visibility='collapsed')
+st.sidebar.markdown('### 3. 평균 방식')
+mode=st.sidebar.radio('평균 방식',['연습일 평균','전체 샷 평균'],index=0,label_visibility='collapsed')
+st.sidebar.caption('연습일 평균: 날짜별 평균을 동일 가중치로 평균')
+st.sidebar.markdown('### 4. 옵션')
+exclude=st.sidebar.checkbox('선택일을 비교 평균에서 제외',value=True)
+
+# 사이드바 상세 범위 필터: 범위와 기본값은 현재 선택 클럽 데이터에서 계산합니다.
+filtered_df = df.copy()
+range_specs = [
+    ('Carry_m', '캐리', 1.0),
+    ('Total_m', '토탈', 1.0),
+    ('BallSpeed_mps', '볼 스피드', 0.5),
+    ('ClubSpeed_mps', '클럽 스피드', 0.5),
+    ('SpinRate_rpm', '스핀량', 50.0),
+    ('LaunchAngle_deg', '발사각', 0.5),
+    ('TotalSide_m', '사이드', 1.0),
+]
+range_version_key = f'range_filter_version::{club}'
+if range_version_key not in st.session_state:
+    st.session_state[range_version_key] = 0
+
+with st.sidebar.expander('상세 필터 (범위 필터)', expanded=False):
+    st.caption(f'{_club_korean_name(club)} 데이터 범위 안의 샷만 분석에 반영됩니다.')
+
+    # 버튼을 슬라이더보다 먼저 처리하고 key 버전을 바꿔 위젯 상태까지 확실히 초기화합니다.
+    if st.button('범위 필터 초기화', width='stretch', key=f'reset_ranges::{club}'):
+        st.session_state[range_version_key] += 1
+        st.rerun()
+
+    # 슬라이더 최소/최대 범위는 현재 선택한 클럽의 전체 기간 데이터만 기준으로 계산합니다.
+    # 분석 날짜는 범위 산정에 사용하지 않습니다.
+    range_base = df[df['Club'] == club].copy()
+    range_basis_label = f"{_club_korean_name(club)} 전체 기간"
+    active_ranges: dict[str, tuple[float, float]] = {}
+    version = int(st.session_state[range_version_key])
+
+    for column, label, step in range_specs:
+        if column not in range_base.columns:
+            continue
+        bounds = _numeric_range(range_base[column])
+        if bounds is None:
+            continue
+        low, high = bounds
+        # Streamlit slider의 부동소수점 경계 오류를 피하도록 step 배수로 여유 있게 정리합니다.
+        low = float(np.floor(low / step) * step)
+        high = float(np.ceil(high / step) * step)
+        if high <= low:
+            high = low + step
+        st.markdown(
+            f"<div class='tm-range-caption'>{label}: "
+            f"{low:,.1f} ~ {high:,.1f} · {range_basis_label} 기준</div>",
+            unsafe_allow_html=True,
         )
-    with tabs[2]: render_distance_chart(summary)
-    with tabs[3]: st.pyplot(club_path_fig(_period_row(club_df,club_summary,selected_club,'전체 샷 평균')),clear_figure=True)
-    with tabs[4]:
-        sc = [
-            c
-            for c in [
-                "StrokeNo",
-                "Date",
-                "ShotTimeLocal",
-                "Carry_m",
-                "Total_m",
-                "BallSpeed_mps",
-                "ClubSpeed_mps",
-                "SmashFactor",
-                "SpinRate_rpm",
-                "AttackAngle_deg",
-                "ClubPath_deg",
-                "FaceAngle_deg",
-                "FaceToPath_deg",
-                "TotalSide_m",
-                "ImpactOffset_mm",
-                "ImpactHeight_mm",
-            ]
-            if c in club_df.columns
-        ]
-        shot_list_df = safe_dataframe_for_streamlit(
-            club_df.loc[:, sc].reset_index(drop=True)
+        chosen = st.slider(
+            label,
+            min_value=low,
+            max_value=high,
+            value=(low, high),
+            step=float(step),
+            key=f'range_filter::{club}::{column}::v{version}',
+            label_visibility='collapsed',
         )
-        st.dataframe(shot_list_df, width="stretch", hide_index=True)
-else:
-    club=st.sidebar.selectbox('1. 클럽 선택',clubs,index=0); club_dates=sorted(df[df['Club']==club]['Date'].dropna().unique().tolist()); selected_date=st.sidebar.selectbox('분석 날짜',club_dates,index=len(club_dates)-1)
-    st.sidebar.markdown('### 2. 비교 기준'); scope=st.sidebar.radio('비교 범위',['월간 평균 + 연간 평균','월간 평균만','연간 평균만'],label_visibility='collapsed')
-    st.sidebar.markdown('### 3. 평균 방식'); mode=st.sidebar.radio('평균 방식',['연습일 평균','전체 샷 평균'],index=0,label_visibility='collapsed'); st.sidebar.caption('연습일 평균: 날짜별 평균을 동일 가중치로 평균')
-    st.sidebar.markdown('### 4. 옵션'); exclude=st.sidebar.checkbox('선택일을 비교 평균에서 제외',value=True)
-    day,month,year,mlabel,ylabel=_periods(df,selected_date,exclude); ds=_summary(day,club,'전체 샷 평균'); ms=_summary(month,club,mode); ys=_summary(year,club,mode)
-    if scope=='월간 평균만': ys=pd.Series(dtype='object'); year=year.iloc[0:0]
-    if scope=='연간 평균만': ms=pd.Series(dtype='object'); month=month.iloc[0:0]
+        active_ranges[column] = chosen
+
+selected_club_mask = filtered_df['Club'] == club
+selected_club_filtered = filtered_df[selected_club_mask].copy()
+for column, chosen_range in active_ranges.items():
+    selected_club_filtered = _apply_numeric_range(selected_club_filtered, column, chosen_range)
+filtered_df = pd.concat(
+    [filtered_df[~selected_club_mask], selected_club_filtered],
+    ignore_index=True,
+)
+
+filtered_club_day = filtered_df[(filtered_df['Club'] == club) & (filtered_df['Date'] == selected_date)]
+if filtered_club_day.empty:
+    st.warning('현재 범위 필터 조건에 해당하는 선택일 샷이 없습니다. 범위를 넓혀 주세요.')
+
+# 이후 모든 분석은 범위 필터가 반영된 데이터프레임을 사용합니다.
+day,month,year,mlabel,ylabel=_periods(filtered_df,selected_date,exclude)
+ds=_summary(day,club,'전체 샷 평균')
+ms=_summary(month,club,mode)
+ys=_summary(year,club,mode)
+if scope=='월간 평균만':
+    ys=pd.Series(dtype='object')
+    year=year.iloc[0:0]
+if scope=='연간 평균만':
+    ms=pd.Series(dtype='object')
+    month=month.iloc[0:0]
+
+analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석'])
+
+with analysis_tabs[0]:
     st.markdown(f"<div class='tm-title'>기간 비교 ({club})</div>",unsafe_allow_html=True)
     st.markdown(f"<div class='tm-legend'><span><i class='tm-dot tm-dot-day'></i>선택일 ({selected_date})</span><span><i class='tm-dot tm-dot-month'></i>월간 평균 ({mlabel})</span><span><i class='tm-dot tm-dot-year'></i>연간 평균 ({ylabel})</span></div>",unsafe_allow_html=True)
     _render_compare_cards(ds,ms,ys)
-    cc=st.columns([1.05,.85,1.15])
-    with cc[0]: st.markdown("<div class='tm-panel-title'>거리 분포 비교 (캐리)</div>",unsafe_allow_html=True); _carry_chart(day,month,year,club)
-    with cc[1]: st.markdown("<div class='tm-panel-title'>방향성 분포 (좌우 편차)</div>",unsafe_allow_html=True); _side_chart(day,month,year,club)
-    with cc[2]: st.markdown("<div class='tm-panel-title'>월별 캐리 추세</div>",unsafe_allow_html=True); _trend(df,club,pd.to_datetime(selected_date).year,mode)
-    periods=[('선택일',selected_date,day,ds,'전체 샷 평균'),('월간 평균',mlabel,month,ms,mode),('연간 평균',ylabel,year,ys,mode)]
-    st.markdown('### 임팩트 위치 비교'); cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty: st.info('비교 데이터 없음')
-            else: st.pyplot(impact_face_fig(s.get('Avg_ImpactOffset_mm'),s.get('Avg_ImpactHeight_mm'),club,raw[raw['Club']==club],figsize=(5,3.2)),clear_figure=True)
-    st.markdown('### 클럽 패스 비교'); cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty: st.info('비교 데이터 없음')
-            else: st.pyplot(club_path_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
-    st.markdown('### 다이나믹 로프트 / 스핀 로프트 비교'); cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty: st.info('비교 데이터 없음')
-            else: st.pyplot(loft_spin_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
-    st.markdown('### 자동 분석 요약'); st.markdown(f"<div class='tm-auto-summary'>{_auto_text(ds,ms,ys,club)}</div>",unsafe_allow_html=True)
+    # 세 패널의 제목/컨트롤 행을 먼저 만들고 그래프 행을 분리해 상단 정렬을 맞춥니다.
+    compare_headers = st.columns(3)
+    with compare_headers[0]:
+        title_col, control_col = st.columns([1.0, 0.72], vertical_alignment="center")
+        with title_col:
+            st.markdown("<div class='tm-panel-title'>거리 분포 비교</div>", unsafe_allow_html=True)
+        with control_col:
+            avg_distance_choice = st.radio(
+                '거리 기준', ['캐리', '토탈'], horizontal=True,
+                key=f'avg_distance_metric::{club}::{selected_date}',
+                label_visibility='collapsed',
+            )
+    with compare_headers[1]:
+        st.markdown(f"<div class='tm-panel-title'>{_club_korean_name(club)} 탄착군 비교</div>",unsafe_allow_html=True)
+    with compare_headers[2]:
+        st.markdown(f"<div class='tm-panel-title'>월별 {'캐리' if avg_distance_choice == '캐리' else '토탈'} 추세</div>",unsafe_allow_html=True)
 
+    avg_distance_metric = 'Carry_m' if avg_distance_choice == '캐리' else 'Total_m'
+    cc=st.columns(3)
+    with cc[0]:
+        _distance_chart(day,month,year,club,avg_distance_metric)
+    with cc[1]:
+        _side_chart(day,month,year,club,avg_distance_metric)
+    with cc[2]:
+        _trend(filtered_df,club,pd.to_datetime(selected_date).year,mode,avg_distance_metric)
+    periods=[('선택일',selected_date,day,ds,'전체 샷 평균'),('월간 평균',mlabel,month,ms,mode),('연간 평균',ylabel,year,ys,mode)]
+    st.markdown('### 임팩트 위치 비교')
+    cols=st.columns(3)
+    for c,(title,label,raw,s,m) in zip(cols,periods):
+        with c:
+            st.markdown(f'**{title} ({label})**')
+            if s.empty:
+                st.info('비교 데이터 없음')
+            else:
+                st.pyplot(impact_face_fig(s.get('Avg_ImpactOffset_mm'),s.get('Avg_ImpactHeight_mm'),club,raw[raw['Club']==club],figsize=(5,3.2)),clear_figure=True)
+    st.markdown('### 클럽 패스 비교')
+    cols=st.columns(3)
+    for c,(title,label,raw,s,m) in zip(cols,periods):
+        with c:
+            st.markdown(f'**{title} ({label})**')
+            if s.empty:
+                st.info('비교 데이터 없음')
+            else:
+                st.pyplot(club_path_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
+    st.markdown('### 런치 앵글 / 스핀 로프트 비교')
+    cols=st.columns(3)
+    for c,(title,label,raw,s,m) in zip(cols,periods):
+        with c:
+            st.markdown(f'**{title} ({label})**')
+            if s.empty:
+                st.info('비교 데이터 없음')
+            else:
+                st.pyplot(loft_spin_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
+    st.markdown('### 자동 분석 요약')
+    st.markdown(f"<div class='tm-auto-summary'>{_auto_text(ds,ms,ys,club)}</div>",unsafe_allow_html=True)
+
+    # 상세 분석 화면에서 유용했던 기능은 평균 분석 하단의 접이식 메뉴로 통합합니다.
+    with st.expander('전체 클럽 요약', expanded=False):
+        selected_day_all_clubs = filtered_df[filtered_df['Date'] == selected_date].copy()
+        all_club_summary = pd.DataFrame(
+            make_summary(selected_day_all_clubs.to_dict('records'))
+        )
+        if all_club_summary.empty:
+            st.info('선택한 날짜의 클럽 요약 데이터가 없습니다.')
+        else:
+            all_club_summary = all_club_summary[
+                [c for c in SUMMARY_COLUMNS if c in all_club_summary.columns]
+            ]
+            if 'Club' in all_club_summary.columns:
+                all_club_summary = all_club_summary.assign(
+                    _club_order=all_club_summary['Club'].map(club_sort_key)
+                ).sort_values('_club_order').drop(columns='_club_order')
+            render_club_cards(all_club_summary, max_cards=6)
+            st.dataframe(
+                safe_dataframe_for_streamlit(all_club_summary),
+                width='stretch',
+                hide_index=True,
+            )
+
+    with st.expander('원본 샷 데이터', expanded=False):
+        raw_filter_col1, raw_filter_col2 = st.columns(2)
+        with raw_filter_col1:
+            raw_clubs = st.multiselect(
+                '클럽',
+                clubs,
+                default=[club],
+                key=f'raw_shot_clubs::{club}::{selected_date}',
+            )
+        with raw_filter_col2:
+            raw_dates = st.multiselect(
+                '날짜',
+                sorted(dates, reverse=True),
+                default=[selected_date],
+                key=f'raw_shot_dates::{club}::{selected_date}',
+            )
+
+        raw_df = filtered_df.copy()
+        if raw_clubs:
+            raw_df = raw_df[raw_df['Club'].isin(raw_clubs)]
+        if raw_dates:
+            raw_df = raw_df[raw_df['Date'].isin(raw_dates)]
+
+        raw_columns = [
+            c for c in [
+                'Club', 'StrokeNo', 'Date', 'ShotTimeLocal',
+                'Carry_m', 'Total_m', 'Run_m',
+                'BallSpeed_mps', 'ClubSpeed_mps', 'SmashFactor',
+                'SpinRate_rpm', 'LaunchAngle_deg', 'AttackAngle_deg',
+                'ClubPath_deg', 'FaceAngle_deg', 'FaceToPath_deg',
+                'TotalSide_m', 'ImpactOffset_mm', 'ImpactHeight_mm',
+            ] if c in raw_df.columns
+        ]
+        raw_df = raw_df.sort_values(
+            [c for c in ['Date', 'Club', 'StrokeNo'] if c in raw_df.columns],
+            ascending=[False, True, True][:len([c for c in ['Date', 'Club', 'StrokeNo'] if c in raw_df.columns])],
+        ) if not raw_df.empty else raw_df
+        st.caption(f'표시 샷 수: {len(raw_df):,}개')
+        raw_display_df = raw_df.loc[:, raw_columns].reset_index(drop=True)
+        csv_bytes = raw_display_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            'CSV 다운로드',
+            data=csv_bytes,
+            file_name=f'trackman_raw_{selected_date}.csv',
+            mime='text/csv',
+            key=f'raw_csv::{club}::{selected_date}',
+        )
+        render_dark_dataframe(raw_display_df)
+
+with analysis_tabs[1]:
+    render_single_shot_analysis(
+        day_df=day,
+        month_df=month,
+        year_df=year,
+        club=club,
+        selected_date=selected_date,
+        day_summary=ds,
+        month_summary=ms,
+        year_summary=ys,
+    )

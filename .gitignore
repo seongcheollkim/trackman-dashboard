@@ -1,7 +1,24 @@
+# Python
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# macOS
 .DS_Store
+
+# Streamlit secrets
 .streamlit/secrets.toml
-*.json
+
+# Local TrackMan data and generated cache
+# Supabase/원본 JSON에서 다시 복원할 수 있으므로 Git에 저장하지 않습니다.
 data/
+.cache/
+*.parquet
+
+# Local JSON exports
+*.json
+
+# IDE
+.vscode/
+.idea/
