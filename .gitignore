@@ -22,3 +22,7 @@ data/
 # IDE
 .vscode/
 .idea/
+
+.trackman_browser/
+activity_list.curl
+activity_report.curl
