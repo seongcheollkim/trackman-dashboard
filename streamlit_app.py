@@ -2035,8 +2035,26 @@ def _render_compare_cards(day,month,year):
     html=''.join(_card(t,day.get(c),month.get(c),year.get(c),u,n,l) for t,c,u,n,l in items)
     st.markdown("<div class='tm-compare-grid'>"+html+"</div>",unsafe_allow_html=True)
 
-def _period_row(raw,summary,club,mode):
-    return pd.Series({'Club':club,'ClubPath_deg':summary.get('Avg_Path_deg'),'FaceAngle_deg':summary.get('Avg_Face_deg'),'FaceToPath_deg':summary.get('Avg_FaceToPath_deg'),'AttackAngle_deg':summary.get('Avg_Attack_deg'),'DynamicLoft_deg':_raw_avg(raw,club,['DynamicLoft_deg','DynamicLoft','DynamicLoftAngle_deg'],mode),'SpinLoft_deg':_raw_avg(raw,club,['SpinLoft_deg','SpinLoft','SpinLoftAngle_deg'],mode),'SpinRate_rpm':summary.get('Avg_Spin_rpm')})
+def _period_row(raw, summary, club, mode):
+    return pd.Series({
+        'Club': club,
+        'ClubPath_deg': summary.get('Avg_Path_deg'),
+        'FaceAngle_deg': summary.get('Avg_Face_deg'),
+        'FaceToPath_deg': summary.get('Avg_FaceToPath_deg'),
+        'AttackAngle_deg': summary.get('Avg_Attack_deg'),
+        'LaunchAngle_deg': summary.get('Avg_Launch_deg'),
+        'DynamicLoft_deg': _raw_avg(
+            raw, club,
+            ['DynamicLoft_deg', 'DynamicLoft', 'DynamicLoftAngle_deg'],
+            mode,
+        ),
+        'SpinLoft_deg': _raw_avg(
+            raw, club,
+            ['SpinLoft_deg', 'SpinLoft', 'SpinLoftAngle_deg'],
+            mode,
+        ),
+        'SpinRate_rpm': summary.get('Avg_Spin_rpm'),
+    })
 
 def _distance_chart(day, month, year, club, metric="Carry_m"):
     label_map = {"Carry_m": "Carry", "Total_m": "Total"}
