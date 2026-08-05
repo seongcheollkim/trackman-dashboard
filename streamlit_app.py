@@ -2717,16 +2717,31 @@ storage = TrackmanStorage(
     bucket=_app_secret("SUPABASE_BUCKET", "trackman-reports"),
 )
 
-# Streamlit Cloud처럼 로컬 데이터가 비어 있는 환경에서는 Supabase 데이터를 한 번 자동 복원합니다.
-if "cloud_restore_checked" not in st.session_state:
-    st.session_state.cloud_restore_checked = True
-    if storage.cloud_configured and not storage.report_files():
-        with st.spinner("Supabase에서 저장된 TrackMan 데이터를 불러오는 중입니다..."):
-            restore_result = storage.pull_cloud_reports()
-        if restore_result.downloaded:
-            storage.write_last_sync(source="supabase_restore", details={"downloaded": restore_result.downloaded})
-
+# 앱이 다시 실행될 때마다 Supabase 상태를 확인합니다.
+# Streamlit Cloud의 로컬 파일은 앱 프로세스가 살아 있는 동안 유지되므로,
+# 브라우저 새로고침만으로는 Mac에서 새로 업로드한 파일이 자동 복원되지 않습니다.
 storage_status = storage.status(check_cloud=True)
+
+local_report_count = len(storage.report_files())
+cloud_report_count = storage_status.cloud_report_count
+
+if (
+    storage.cloud_configured
+    and storage_status.cloud_connected
+    and cloud_report_count is not None
+    and cloud_report_count > local_report_count
+):
+    with st.spinner("Supabase의 최신 TrackMan 데이터를 반영하는 중입니다..."):
+        restore_result = storage.pull_cloud_reports()
+
+    if restore_result.downloaded:
+        storage.invalidate_cache()
+        st.cache_data.clear()
+        storage.write_last_sync(
+            source="supabase_auto_refresh",
+            details={"downloaded": restore_result.downloaded},
+        )
+        storage_status = storage.status(check_cloud=True)
 
 st.sidebar.markdown("## Trackman 분석")
 st.sidebar.caption("by seongcheoll.kim")
@@ -2765,36 +2780,60 @@ else:
         with st.sidebar.expander("Supabase 오류"):
             st.code(storage_status.cloud_error[-2000:])
 
-if st.sidebar.button("🔄 TrackMan 데이터 동기화", width="stretch", type="primary"):
-    with st.spinner("TrackMan 데이터를 동기화하고 Supabase에 백업하는 중입니다..."):
-        sync_result = sync_trackman_reports(storage=storage)
-    if sync_result.ok:
-        cloud_uploaded = sync_result.cloud.uploaded if sync_result.cloud else 0
-        st.sidebar.success(f"동기화 완료 · 신규 {sync_result.downloaded_count}회 · 클라우드 {cloud_uploaded}회")
+if st.sidebar.button("☁️ 최신 데이터 불러오기", width="stretch", type="primary"):
+    with st.spinner("Supabase의 최신 TrackMan 데이터를 불러오는 중입니다..."):
+        pull_result = storage.pull_cloud_reports()
+
+    if pull_result.ok:
+        storage.invalidate_cache()
+        storage.write_last_sync(
+            source="supabase_manual_refresh",
+            details={"downloaded": pull_result.downloaded},
+        )
         st.cache_data.clear()
+        st.sidebar.success(f"최신 데이터 반영 완료 · 신규 {pull_result.downloaded}회")
         st.rerun()
     else:
-        st.sidebar.error("동기화 또는 클라우드 백업에 실패했습니다.")
+        st.sidebar.error("Supabase 데이터 불러오기에 실패했습니다.")
         with st.sidebar.expander("오류 내용"):
-            st.code((sync_result.stderr or sync_result.stdout)[-4000:])
+            st.code("\n".join(pull_result.errors)[-4000:])
 
 uploaded = []
 
 with st.sidebar.expander("⋯ 더보기", expanded=False):
     st.caption("필요할 때만 사용하는 데이터 관리 기능입니다.")
 
-    if st.button("☁️ Supabase에서 새로고침", width="stretch", disabled=not storage.cloud_configured):
-        with st.spinner("Supabase의 저장 데이터를 확인하는 중입니다..."):
-            pull_result = storage.pull_cloud_reports()
-        if pull_result.ok:
-            storage.write_last_sync(source="supabase_pull", details={"downloaded": pull_result.downloaded})
-            st.success(f"클라우드 복원 완료 · 신규 {pull_result.downloaded}회")
-            st.cache_data.clear()
-            st.rerun()
-        else:
-            st.error("Supabase 데이터 불러오기에 실패했습니다.")
-            with st.expander("오류 내용"):
-                st.code("\n".join(pull_result.errors)[-4000:])
+    direct_sync_required = [
+        APP_DIR / "activity_list.curl",
+        APP_DIR / "activity_report.curl",
+        APP_DIR / "download_all_trackman_reports.py",
+        APP_DIR / "trackman_auth_refresh.py",
+    ]
+    direct_sync_available = all(path.exists() for path in direct_sync_required)
+
+    if direct_sync_available:
+        if st.button("🖥️ 이 Mac에서 TrackMan 직접 동기화", width="stretch"):
+            with st.spinner("TrackMan 데이터를 수집하고 Supabase에 백업하는 중입니다..."):
+                sync_result = sync_trackman_reports(storage=storage)
+
+            if sync_result.ok:
+                cloud_uploaded = sync_result.cloud.uploaded if sync_result.cloud else 0
+                storage.invalidate_cache()
+                st.cache_data.clear()
+                st.success(
+                    f"직접 동기화 완료 · 신규 {sync_result.downloaded_count}회 "
+                    f"· 클라우드 {cloud_uploaded}회"
+                )
+                st.rerun()
+            else:
+                st.error("TrackMan 직접 동기화에 실패했습니다.")
+                with st.expander("오류 내용"):
+                    st.code((sync_result.stderr or sync_result.stdout)[-4000:])
+    else:
+        st.caption(
+            "TrackMan 원본 수집은 Mac의 LaunchAgent가 담당합니다. "
+            "웹앱에서는 위의 ‘최신 데이터 불러오기’를 사용하세요."
+        )
 
     if st.button("⬆️ 로컬 데이터 백업", width="stretch", disabled=not storage.cloud_configured):
         with st.spinner("로컬 보고서를 Supabase에 백업하는 중입니다..."):
