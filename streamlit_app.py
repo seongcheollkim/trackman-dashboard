@@ -147,6 +147,8 @@ from trackman_core import (
     parse_trackman_report,
 )
 
+from ai import AI_CSS, diagnose_practice, diagnosis_html, goal_options
+
 st.set_page_config(
     page_title="TRACKMAN DASHBOARD",
     layout="wide",
@@ -208,7 +210,16 @@ def _render_login_screen() -> None:
             line-height: 1.7;
             margin-bottom: 22px;
         }
-        </style>
+        
+.tm-shot-section-title{
+  font-size:1.03rem;
+  font-weight:850;
+  color:#f3f7fb;
+  margin:12px 0 8px;
+  padding-top:4px;
+}
+
+</style>
         <div class="tm-login-wrap">
           <div class="tm-login-logo"><span class="tm-login-orange">▰</span> TRACKMAN DASHBOARD</div>
           <div class="tm-login-title">개인 전용 대시보드</div>
@@ -780,6 +791,7 @@ div[data-baseweb="popover"] .stButton > button:hover {
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+st.markdown(AI_CSS, unsafe_allow_html=True)
 
 CLUB_COLORS = {
     "Driver": "#2388ff", "3Wood": "#8b5a3c", "5Wood": "#9b6a50", "7Wood": "#72c7ff",
@@ -2334,21 +2346,531 @@ def _render_shot_compare_cards(row: pd.Series, day_summary: pd.Series, month_sum
     st.markdown("<div class='tm-shot-compare-grid'>" + "".join(cards) + "</div>", unsafe_allow_html=True)
 
 
-def _shot_table(df_shots: pd.DataFrame, selected_index: int, key: str) -> int:
-    """샷 목록을 앱의 다크 테마로 표시합니다. 샷 선택은 위 슬라이더/버튼과 연동됩니다."""
-    table_columns = [
-        "StrokeNo", "ShotTimeLocal", "Carry_m", "Total_m", "BallSpeed_mps",
-        "ClubSpeed_mps", "SmashFactor", "SpinRate_rpm", "LaunchAngle_deg",
-        "AttackAngle_deg", "ClubPath_deg", "FaceAngle_deg", "FaceToPath_deg",
-        "TotalSide_m", "ImpactOffset_mm", "ImpactHeight_mm",
-    ]
-    available = [column for column in table_columns if column in df_shots.columns]
-    table_df = df_shots.loc[:, available].copy().reset_index(drop=True)
-    table_df.insert(0, "선택", ["▶" if idx == selected_index else "" for idx in range(len(table_df))])
-    render_dark_dataframe(table_df, selected_row=selected_index)
-    st.caption("샷 변경은 위의 이전/다음 버튼 또는 샷 선택 슬라이더를 사용하세요.")
-    return selected_index
 
+def _robust_center_scale(series: pd.Series) -> tuple[float | None, float | None]:
+    values = pd.to_numeric(series, errors="coerce").dropna()
+    if values.empty:
+        return None, None
+
+    center = float(values.median())
+    mad = float((values - center).abs().median())
+    if mad > 1e-9:
+        # MAD -> sigma scale
+        return center, mad * 1.4826
+
+    std = float(values.std(ddof=0)) if len(values) >= 2 else 0.0
+    return center, max(std, 1e-6)
+
+
+def _score_near_center(
+    value: Any,
+    center: float | None,
+    scale: float | None,
+    *,
+    floor_scale: float,
+) -> float | None:
+    number = _safe_numeric(value)
+    if pd.isna(number) or center is None:
+        return None
+    spread = max(float(scale or 0.0), float(floor_scale), 1e-6)
+    z = abs(float(number) - float(center)) / spread
+    return max(0.0, min(100.0, 100.0 - z * 22.0))
+
+
+def _score_lower_is_better(
+    value: Any,
+    reference: float | None,
+    scale: float | None,
+    *,
+    floor_scale: float,
+) -> float | None:
+    number = _safe_numeric(value)
+    if pd.isna(number):
+        return None
+    ref = 0.0 if reference is None else float(reference)
+    spread = max(float(scale or 0.0), float(floor_scale), 1e-6)
+    # reference보다 좋은 값은 100점, 커질수록 완만하게 감점
+    excess = max(0.0, abs(float(number)) - abs(ref))
+    return max(0.0, min(100.0, 100.0 - (excess / spread) * 24.0))
+
+
+def _score_higher_is_better(
+    value: Any,
+    center: float | None,
+    scale: float | None,
+    *,
+    floor_scale: float,
+) -> float | None:
+    number = _safe_numeric(value)
+    if pd.isna(number) or center is None:
+        return None
+    spread = max(float(scale or 0.0), float(floor_scale), 1e-6)
+    # 당일 중앙값 이상이면 충분히 좋은 것으로 보고 큰 추가 가산은 하지 않음
+    if float(number) >= float(center):
+        return 100.0
+    deficit = float(center) - float(number)
+    return max(0.0, min(100.0, 100.0 - (deficit / spread) * 24.0))
+
+
+def _weighted_available_score(parts: list[tuple[float | None, float]]) -> float:
+    usable = [(score, weight) for score, weight in parts if score is not None and weight > 0]
+    if not usable:
+        return 70.0
+    total_weight = sum(weight for _, weight in usable)
+    return round(sum(float(score) * weight for score, weight in usable) / total_weight, 1)
+
+
+def _shot_ai_scores(shots: pd.DataFrame, club: str) -> pd.DataFrame:
+    """
+    개별 샷 품질을 0~100점으로 평가합니다.
+
+    - 절대 핸디캡 점수가 아니라 '같은 날 같은 클럽 안에서의 샷 품질' 점수
+    - 웨지는 여러 목표 거리를 섞어 치므로 전체 Carry 중앙값으로 평가하지 않고
+      10m 거리 버킷 안에서만 Carry/Launch 안정성을 봅니다.
+    """
+    scored = shots.copy().reset_index(drop=True)
+    if scored.empty:
+        scored["AI점수"] = []
+        scored["상태"] = []
+        return scored
+
+    is_wedge = ("Wedge" in str(club)) or str(club) in {"PitchingWedge", "GapWedge", "SandWedge"}
+
+    stats: dict[str, tuple[float | None, float | None]] = {}
+    for column in [
+        "Carry_m", "BallSpeed_mps", "SmashFactor", "TotalSide_m",
+        "FaceToPath_deg", "LaunchAngle_deg",
+    ]:
+        if column in scored.columns:
+            stats[column] = _robust_center_scale(scored[column])
+
+    # 웨지용 10m 버킷
+    if is_wedge and "Carry_m" in scored.columns:
+        carries = pd.to_numeric(scored["Carry_m"], errors="coerce")
+        scored["_shot_bucket"] = (
+            np.floor((carries + 5.0) / 10.0) * 10.0
+        )
+    else:
+        scored["_shot_bucket"] = np.nan
+
+    scores: list[float] = []
+    for row_index, row in scored.iterrows():
+        side_center, side_scale = stats.get("TotalSide_m", (0.0, None))
+        ftp_center, ftp_scale = stats.get("FaceToPath_deg", (0.0, None))
+        carry_center, carry_scale = stats.get("Carry_m", (None, None))
+        ball_center, ball_scale = stats.get("BallSpeed_mps", (None, None))
+        smash_center, smash_scale = stats.get("SmashFactor", (None, None))
+        launch_center, launch_scale = stats.get("LaunchAngle_deg", (None, None))
+
+        if is_wedge:
+            bucket_value = row.get("_shot_bucket")
+            if not pd.isna(bucket_value):
+                bucket = scored[scored["_shot_bucket"] == bucket_value]
+            else:
+                bucket = scored.iloc[0:0]
+
+            if len(bucket) >= 3:
+                bucket_carry_center, bucket_carry_scale = _robust_center_scale(bucket["Carry_m"])
+                if "LaunchAngle_deg" in bucket.columns:
+                    bucket_launch_center, bucket_launch_scale = _robust_center_scale(bucket["LaunchAngle_deg"])
+                else:
+                    bucket_launch_center, bucket_launch_scale = None, None
+            else:
+                bucket_carry_center, bucket_carry_scale = None, None
+                bucket_launch_center, bucket_launch_scale = None, None
+
+            parts = [
+                (
+                    _score_lower_is_better(
+                        row.get("TotalSide_m"),
+                        0.0,
+                        side_scale,
+                        floor_scale=4.0,
+                    ),
+                    0.45,
+                ),
+                (
+                    _score_lower_is_better(
+                        row.get("FaceToPath_deg"),
+                        0.0,
+                        ftp_scale,
+                        floor_scale=3.0,
+                    ),
+                    0.20,
+                ),
+                (
+                    _score_near_center(
+                        row.get("Carry_m"),
+                        bucket_carry_center,
+                        bucket_carry_scale,
+                        floor_scale=2.5,
+                    ),
+                    0.20,
+                ),
+                (
+                    _score_near_center(
+                        row.get("LaunchAngle_deg"),
+                        bucket_launch_center,
+                        bucket_launch_scale,
+                        floor_scale=2.5,
+                    ),
+                    0.15,
+                ),
+            ]
+        else:
+            parts = [
+                (
+                    _score_near_center(
+                        row.get("Carry_m"),
+                        carry_center,
+                        carry_scale,
+                        floor_scale=5.0,
+                    ),
+                    0.25,
+                ),
+                (
+                    _score_lower_is_better(
+                        row.get("TotalSide_m"),
+                        0.0,
+                        side_scale,
+                        floor_scale=6.0,
+                    ),
+                    0.30,
+                ),
+                (
+                    _score_higher_is_better(
+                        row.get("SmashFactor"),
+                        smash_center,
+                        smash_scale,
+                        floor_scale=0.035,
+                    ),
+                    0.20,
+                ),
+                (
+                    _score_higher_is_better(
+                        row.get("BallSpeed_mps"),
+                        ball_center,
+                        ball_scale,
+                        floor_scale=1.8,
+                    ),
+                    0.15,
+                ),
+                (
+                    _score_lower_is_better(
+                        row.get("FaceToPath_deg"),
+                        0.0,
+                        ftp_scale,
+                        floor_scale=3.0,
+                    ),
+                    0.10,
+                ),
+            ]
+
+        scores.append(_weighted_available_score(parts))
+
+    scored["AI점수"] = [int(round(value)) for value in scores]
+
+    def status_from_score(value: int) -> str:
+        if value >= 85:
+            return "Excellent"
+        if value >= 70:
+            return "Good"
+        if value >= 50:
+            return "Poor"
+        return "Miss"
+
+    scored["상태"] = scored["AI점수"].map(status_from_score)
+    return scored
+
+
+def _shot_status_badge(score: int, status: str) -> str:
+    icon = {
+        "Excellent": "🟢",
+        "Good": "🟡",
+        "Poor": "🟠",
+        "Miss": "🔴",
+    }.get(status, "⚪")
+    return f"{icon} {status}"
+
+
+def _render_clickable_shot_distribution(
+    shots: pd.DataFrame,
+    selected_index: int,
+    *,
+    key: str,
+    distance_metric: str = "Carry_m",
+) -> int:
+    """
+    Plotly 클릭 선택형 탄착군.
+
+    v8 개선:
+    - 모든 샷을 단일 trace로 그려 Plotly point index와 실제 shot_index를 1:1로 유지
+    - customdata를 1차원 정수로 저장
+    - Streamlit Plotly selection event의 여러 반환 형태를 모두 처리
+    - 선택 샷이 바뀔 때 component key도 변경해 이전 selection state를 제거
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        st.warning(
+            "탄착군 클릭 기능을 사용하려면 plotly가 필요합니다. "
+            "`pip install plotly` 후 다시 실행하세요."
+        )
+        _render_blinking_direction_distribution(shots, selected_index, distance_metric)
+        return selected_index
+
+    y_metric = distance_metric if distance_metric in shots.columns else "Carry_m"
+    if "TotalSide_m" not in shots.columns or y_metric not in shots.columns:
+        st.info("탄착군 데이터가 없습니다.")
+        return selected_index
+
+    work = shots.copy().reset_index(drop=True)
+    work["_side"] = pd.to_numeric(work["TotalSide_m"], errors="coerce")
+    work["_distance"] = pd.to_numeric(work[y_metric], errors="coerce")
+    work["_shot_index"] = np.arange(len(work), dtype=int)
+    work = work.dropna(subset=["_side", "_distance"]).reset_index(drop=True)
+
+    if work.empty:
+        st.info("탄착군 데이터가 없습니다.")
+        return selected_index
+
+    # 단일 trace를 유지하면서 선택 샷만 크기/테두리로 강조합니다.
+    marker_sizes = [
+        17 if int(idx) == int(selected_index) else 9
+        for idx in work["_shot_index"]
+    ]
+    marker_line_widths = [
+        3 if int(idx) == int(selected_index) else 0
+        for idx in work["_shot_index"]
+    ]
+
+    labels = [
+        f"Shot {_shot_display_number(shots.iloc[int(idx)], int(idx))}"
+        for idx in work["_shot_index"]
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=work["_side"],
+            y=work["_distance"],
+            mode="markers",
+            marker={
+                "size": marker_sizes,
+                "opacity": 0.82,
+                "line": {"width": marker_line_widths},
+            },
+            # 1차원 정수 customdata: 클릭 결과에서 곧바로 실제 shot_index 복원
+            customdata=work["_shot_index"].astype(int).tolist(),
+            text=labels,
+            hovertemplate=(
+                "%{text}<br>"
+                "좌우 %{x:.1f}m<br>"
+                "거리 %{y:.1f}m"
+                "<extra></extra>"
+            ),
+            name="샷",
+        )
+    )
+
+    # 탄착군 중앙선(0m): 노란색 점선
+    fig.add_vline(
+        x=0,
+        line_width=2,
+        line_dash="dash",
+        line_color="#FFD54F",
+        opacity=0.85,
+    )
+
+    # 탄착군 평균 좌우 편차선: 초록색 점선
+    avg_side = float(work["_side"].mean())
+    fig.add_vline(
+        x=avg_side,
+        line_width=2,
+        line_dash="dot",
+        line_color="#67CF45",
+        opacity=0.90,
+        annotation_text=f"평균 {avg_side:+.1f}m",
+        annotation_position="top",
+        annotation_font_color="#67CF45",
+    )
+    fig.update_layout(
+        height=335,
+        margin={"l": 20, "r": 15, "t": 15, "b": 25},
+        xaxis_title="좌우 편차 (m)",
+        yaxis_title="캐리 (m)" if y_metric == "Carry_m" else "토탈 (m)",
+        showlegend=False,
+        dragmode=False,
+        clickmode="event+select",
+    )
+
+    # selected_index를 key에 포함해 선택이 바뀐 뒤 이전 Plotly selection state가
+    # 다음 rerun에 남아 있는 문제를 방지합니다.
+    event = st.plotly_chart(
+        fig,
+        width="stretch",
+        key=f"{key}::{selected_index}",
+        on_select="rerun",
+        selection_mode="points",
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
+            "doubleClick": False,
+        },
+    )
+
+    # Streamlit 버전에 따라 event/selection/point가 dict 또는 AttributeDict 형태일 수 있어
+    # 가능한 반환 형태를 모두 처리합니다.
+    selection = None
+    try:
+        selection = event.selection
+    except Exception:
+        try:
+            selection = event.get("selection")
+        except Exception:
+            selection = None
+
+    points = []
+    if selection is not None:
+        try:
+            points = list(selection.points or [])
+        except Exception:
+            try:
+                points = list(selection.get("points", []) or [])
+            except Exception:
+                points = []
+
+    if not points:
+        return selected_index
+
+    point = points[-1]
+
+    def _point_value(obj, name):
+        try:
+            value = getattr(obj, name)
+            if value is not None:
+                return value
+        except Exception:
+            pass
+        try:
+            return obj.get(name)
+        except Exception:
+            return None
+
+    # 1순위: customdata = 실제 shot_index
+    customdata = _point_value(point, "customdata")
+    clicked_index = None
+
+    if customdata is not None:
+        try:
+            # list/tuple/numpy array 형태
+            if isinstance(customdata, (list, tuple, np.ndarray)):
+                if len(customdata):
+                    clicked_index = int(customdata[0])
+            else:
+                # scalar 형태
+                clicked_index = int(customdata)
+        except Exception:
+            clicked_index = None
+
+    # 2순위: 단일 trace이므로 point_index/point_number로 work 행을 복원
+    if clicked_index is None:
+        for field in ("point_index", "point_number", "pointIndex", "pointNumber"):
+            raw = _point_value(point, field)
+            if raw is None:
+                continue
+            try:
+                plot_index = int(raw)
+                if 0 <= plot_index < len(work):
+                    clicked_index = int(work.iloc[plot_index]["_shot_index"])
+                    break
+            except Exception:
+                continue
+
+    if clicked_index is None:
+        return selected_index
+
+    clicked_index = max(0, min(int(clicked_index), len(shots) - 1))
+    return clicked_index
+
+def _shot_table(
+    df_shots: pd.DataFrame,
+    selected_index: int,
+    key: str,
+    *,
+    sort_by_ai_low: bool = False,
+) -> int:
+    """
+    Streamlit native row-selection table.
+
+    - 행 클릭 -> 상세 샷 이동
+    - AI 점수/상태 표시
+    - AI 낮은 순 보기 지원
+    - 현재 선택 샷은 ▶로 별도 표시
+    """
+    scored = _shot_ai_scores(df_shots, str(df_shots.iloc[0].get("Club", "")) if not df_shots.empty else "")
+
+    table_columns = [
+        "StrokeNo", "ShotTimeLocal", "AI점수", "상태",
+        "Carry_m", "Total_m", "BallSpeed_mps", "ClubSpeed_mps",
+        "SmashFactor", "SpinRate_rpm", "LaunchAngle_deg", "AttackAngle_deg",
+        "ClubPath_deg", "FaceAngle_deg", "FaceToPath_deg", "TotalSide_m",
+        "ImpactOffset_mm", "ImpactHeight_mm",
+    ]
+    available = [column for column in table_columns if column in scored.columns]
+
+    table_df = scored.loc[:, available].copy()
+    table_df["_shot_index"] = np.arange(len(table_df))
+    table_df.insert(
+        0,
+        "선택",
+        ["▶" if idx == selected_index else "" for idx in range(len(table_df))],
+    )
+    if "상태" in table_df.columns:
+        table_df["상태"] = [
+            _shot_status_badge(int(score), str(status))
+            for score, status in zip(table_df["AI점수"], table_df["상태"])
+        ]
+
+    if sort_by_ai_low and "AI점수" in table_df.columns:
+        table_df = table_df.sort_values(
+            ["AI점수", "_shot_index"],
+            ascending=[True, True],
+            kind="stable",
+        )
+
+    display_df = table_df.drop(columns=["_shot_index"]).reset_index(drop=True)
+    index_map = table_df["_shot_index"].astype(int).tolist()
+
+    event = st.dataframe(
+        safe_dataframe_for_streamlit(display_df),
+        width="stretch",
+        height=min(580, max(280, 42 + 35 * min(len(display_df), 14))),
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key,
+        column_config={
+            "AI점수": st.column_config.NumberColumn(
+                "AI 점수",
+                help="같은 날 같은 클럽 안에서 평가한 개별 샷 품질 점수",
+                format="%d",
+            ),
+            "상태": st.column_config.TextColumn("상태"),
+        },
+    )
+
+    try:
+        rows = event.selection.rows
+    except Exception:
+        rows = []
+
+    if rows:
+        displayed_row = int(rows[-1])
+        if 0 <= displayed_row < len(index_map):
+            return int(index_map[displayed_row])
+
+    return selected_index
 
 def _club_korean_name(club: str) -> str:
     """내부 클럽 코드를 화면용 한글 클럽명으로 변환합니다."""
@@ -2600,7 +3122,18 @@ def render_single_shot_analysis(
     month_summary: pd.Series,
     year_summary: pd.Series,
 ) -> None:
-    """Step 1~3: 개별 샷 탐색, 목록 선택, 기간 평균 비교를 한 화면에 렌더링합니다."""
+    """
+    v8 샷별 상세 분석.
+
+    UI 순서:
+    1. 현재 선택 샷 표시
+    2. 탄착군 / 임팩트 / 클럽 패스 / 로프트-스핀
+    3. 선택 샷 핵심 수치 및 상세 데이터
+    4. 클릭 가능한 샷 목록 + AI 점수
+    5. 선택 샷 vs 기간 평균 비교
+
+    샷 이동은 테이블 행 클릭 또는 탄착군 점 클릭만 사용합니다.
+    """
     shots = day_df[day_df["Club"] == club].copy()
     sort_columns = _shot_sort_columns(shots)
     if sort_columns:
@@ -2614,59 +3147,55 @@ def render_single_shot_analysis(
     state_key = f"shot_index::{club}::{selected_date}"
     if state_key not in st.session_state:
         st.session_state[state_key] = 0
-    st.session_state[state_key] = min(max(int(st.session_state[state_key]), 0), len(shots) - 1)
-
-    st.markdown(
-        f"<div class='tm-shot-heading'><div class='tm-shot-heading-title'>{club} 개별 샷 분석</div>"
-        f"<div class='tm-shot-heading-sub'>{selected_date} · 총 {len(shots)}샷</div></div>",
-        unsafe_allow_html=True,
+    st.session_state[state_key] = min(
+        max(int(st.session_state[state_key]), 0),
+        len(shots) - 1,
     )
-
-    previous_col, slider_col, next_col = st.columns([0.8, 3.4, 0.8])
-    with previous_col:
-        if st.button("◀ 이전 샷", width="stretch", disabled=st.session_state[state_key] <= 0, key=f"prev::{state_key}"):
-            st.session_state[state_key] -= 1
-            st.rerun()
-    with slider_col:
-        selected_number = st.slider(
-            "샷 선택",
-            min_value=1,
-            max_value=len(shots),
-            value=st.session_state[state_key] + 1,
-            step=1,
-            key=f"slider::{state_key}",
-        )
-        slider_index = selected_number - 1
-        if slider_index != st.session_state[state_key]:
-            st.session_state[state_key] = slider_index
-            st.rerun()
-    with next_col:
-        if st.button("다음 샷 ▶", width="stretch", disabled=st.session_state[state_key] >= len(shots) - 1, key=f"next::{state_key}"):
-            st.session_state[state_key] += 1
-            st.rerun()
 
     selected_index = st.session_state[state_key]
     row = shots.iloc[selected_index]
     shot_no = _shot_display_number(row, selected_index)
     shot_time = str(row.get("ShotTimeLocal", "") or "")
-    st.caption(f"현재 선택: Shot {shot_no} · {shot_time} · {selected_index + 1}/{len(shots)}")
-
-    # Step 1: 선택 샷의 모든 핵심 수치 및 3개 시각화
-    render_top_metrics(_shot_metric_items(row))
-    render_shot_detail_panel(row, state_suffix=f"{club}::{selected_date}")
-
-    # 탄착군과 선택 샷의 임팩트/패스/로프트를 한 행에 배치해 화면 균형을 맞춥니다.
     club_title = _club_korean_name(club)
+
+    st.markdown(
+        f"<div class='tm-shot-heading'>"
+        f"<div>"
+        f"<div class='tm-shot-heading-title'>{club_title} 샷별 상세 분석</div>"
+        f"<div class='tm-shot-heading-sub'>"
+        f"선택 Shot {shot_no} · {shot_time} · {selected_index + 1}/{len(shots)}"
+        f"</div>"
+        f"</div>"
+        f"<div class='tm-shot-heading-sub'>{selected_date} · 총 {len(shots)}샷</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ------------------------------------------------------------------
+    # 1) 상단: 시각적 분석
+    # ------------------------------------------------------------------
     visual_cols = st.columns([1.18, 0.92, 0.92, 0.92])
+
     with visual_cols[0]:
-        st.markdown(f"<div class='tm-panel-title'>{club_title} 탄착군</div>", unsafe_allow_html=True)
-        _render_blinking_direction_distribution(
+        st.markdown(
+            f"<div class='tm-panel-title'>{club_title} 탄착군</div>",
+            unsafe_allow_html=True,
+        )
+        clicked_scatter_index = _render_clickable_shot_distribution(
             shots,
             selected_index,
+            key=f"shot_scatter::{club}::{selected_date}",
             distance_metric="Carry_m",
         )
+        if clicked_scatter_index != selected_index:
+            st.session_state[state_key] = clicked_scatter_index
+            st.rerun()
+
     with visual_cols[1]:
-        st.markdown("<div class='tm-panel-title'>선택 샷 임팩트 위치</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='tm-panel-title'>선택 샷 임팩트 위치</div>",
+            unsafe_allow_html=True,
+        )
         st.pyplot(
             impact_face_fig(
                 row.get("ImpactOffset_mm"),
@@ -2677,25 +3206,80 @@ def render_single_shot_analysis(
             ),
             clear_figure=True,
         )
-    with visual_cols[2]:
-        st.markdown("<div class='tm-panel-title'>선택 샷 클럽 패스</div>", unsafe_allow_html=True)
-        st.pyplot(club_path_fig(row, figsize=(4.8, 3.45)), clear_figure=True)
-    with visual_cols[3]:
-        st.markdown("<div class='tm-panel-title'>선택 샷 로프트 / 스핀 로프트</div>", unsafe_allow_html=True)
-        st.pyplot(loft_spin_fig(row, figsize=(4.8, 3.45)), clear_figure=True)
 
-    # Step 2: 행을 클릭하면 선택 샷 이동
+    with visual_cols[2]:
+        st.markdown(
+            "<div class='tm-panel-title'>선택 샷 클럽 패스</div>",
+            unsafe_allow_html=True,
+        )
+        st.pyplot(
+            club_path_fig(row, figsize=(4.8, 3.45)),
+            clear_figure=True,
+        )
+
+    with visual_cols[3]:
+        st.markdown(
+            "<div class='tm-panel-title'>선택 샷 로프트 / 스핀 로프트</div>",
+            unsafe_allow_html=True,
+        )
+        st.pyplot(
+            loft_spin_fig(row, figsize=(4.8, 3.45)),
+            clear_figure=True,
+        )
+
+    # ------------------------------------------------------------------
+    # 2) 시각화 아래: 선택 샷 상세 데이터
+    # ------------------------------------------------------------------
+    st.markdown(
+        "<div class='tm-shot-section-title'>선택 샷 상세 데이터</div>",
+        unsafe_allow_html=True,
+    )
+    render_top_metrics(_shot_metric_items(row))
+    render_shot_detail_panel(
+        row,
+        state_suffix=f"{club}::{selected_date}",
+    )
+
+    # ------------------------------------------------------------------
+    # 3) 샷 목록: 테이블 클릭 + AI 점수
+    # ------------------------------------------------------------------
     st.markdown("### 샷 목록")
-    st.caption("표에서 한 행을 선택하면 위의 샷 상세 화면이 해당 샷으로 이동합니다.")
-    clicked_index = _shot_table(shots, selected_index, key=f"shot_table::{club}::{selected_date}")
+    control_left, control_right = st.columns([1.2, 3.8])
+
+    with control_left:
+        sort_by_ai_low = st.checkbox(
+            "AI 낮은 순 보기",
+            value=False,
+            key=f"ai_sort::{club}::{selected_date}",
+            help="개선이 필요한 샷부터 테이블 위에 표시합니다.",
+        )
+
+    with control_right:
+        st.caption(
+            "표의 행 또는 위 탄착군의 점을 클릭하면 같은 샷이 선택됩니다. "
+            "Excellent 85~100 · Good 70~84 · Poor 50~69 · Miss 0~49"
+        )
+
+    clicked_index = _shot_table(
+        shots,
+        selected_index,
+        key=f"shot_table::{club}::{selected_date}",
+        sort_by_ai_low=sort_by_ai_low,
+    )
     if clicked_index != selected_index:
         st.session_state[state_key] = clicked_index
         st.rerun()
 
-    # Step 3: 선택 샷과 평균 비교
+    # ------------------------------------------------------------------
+    # 4) 기간 평균 비교
+    # ------------------------------------------------------------------
     st.markdown("### 선택 샷 vs 당일·월간·연간 평균")
-    _render_shot_compare_cards(row, day_summary, month_summary, year_summary)
-
+    _render_shot_compare_cards(
+        row,
+        day_summary,
+        month_summary,
+        year_summary,
+    )
 # Header
 st.markdown(
     "<div class='tm-logo' style='padding-top:8px'><span class='tm-orange'>▰</span> TRACKMAN DASHBOARD</div>",
@@ -2984,7 +3568,7 @@ if scope=='연간 평균만':
     ms=pd.Series(dtype='object')
     month=month.iloc[0:0]
 
-analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석'])
+analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단'])
 
 with analysis_tabs[0]:
     st.markdown(f"<div class='tm-title'>기간 비교 ({club})</div>",unsafe_allow_html=True)
@@ -3129,3 +3713,123 @@ with analysis_tabs[1]:
         month_summary=ms,
         year_summary=ys,
     )
+
+
+# -----------------------------------------------------------------------------
+# DODOS Golf Solution Phase 2 / Step 1 - Rule-based AI Swing Diagnosis
+# -----------------------------------------------------------------------------
+with analysis_tabs[2]:
+    st.markdown("<div class='tm-title'>🤖 AI 스윙 진단</div>", unsafe_allow_html=True)
+    st.caption(
+        "오늘 연습한 전체 클럽을 종합해 클럽군별 품질, 베스트 클럽, 우선 개선 클럽과 "
+        "다음 연습 방향을 요약합니다."
+    )
+
+    goal_col, guide_col = st.columns([1.15, 2.85], vertical_alignment="bottom")
+    with goal_col:
+        _ai_goal_labels = goal_options()
+        _ai_goal_keys = list(_ai_goal_labels.keys())
+        ai_goal = st.selectbox(
+            "🎯 목표 수준",
+            _ai_goal_keys,
+            index=_ai_goal_keys.index("single") if "single" in _ai_goal_keys else 0,
+            format_func=lambda key: _ai_goal_labels[key],
+            key="dodos_ai_goal",
+        )
+    with guide_col:
+        st.caption(
+            "AI 종합 점수는 Performance 50% · Consistency 30% · Trend 20%로 계산하며, "
+            "상단 리포트에서는 이 계산식보다 오늘 무엇을 유지하고 무엇을 보완할지를 우선 보여줍니다."
+        )
+
+    ai_report = diagnose_practice(
+        df,
+        selected_date,
+        goal=ai_goal,
+        recent_sessions=10,
+        min_shots_per_club=2,
+    )
+    st.markdown(diagnosis_html(ai_report), unsafe_allow_html=True)
+
+    if ai_report.clubs:
+        st.markdown("### 클럽별 상세 진단")
+        club_names = [item.club for item in ai_report.clubs]
+        default_index = club_names.index(club) if club in club_names else 0
+        ai_selected_club = st.selectbox(
+            "클럽별 AI 평가",
+            club_names,
+            index=default_index,
+            format_func=_club_korean_name,
+            key=f"ai_club::{selected_date}",
+        )
+        club_report = next(
+            item for item in ai_report.clubs
+            if item.club == ai_selected_club
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("AI 점수", f"{club_report.score:.0f}/100")
+        c2.metric("등급", club_report.grade)
+        c3.metric("신뢰도", f"{club_report.confidence}%")
+        c4.metric("분석 샷", f"{club_report.shots}개")
+
+        b1, b2, b3 = st.columns(3)
+        b1.metric("Performance", f"{club_report.performance_score:.0f}/100")
+        b2.metric("Consistency", f"{club_report.consistency_score:.0f}/100")
+        b3.metric("Trend", f"{club_report.trend_score:.0f}/100")
+
+
+if "Wedge" in ai_selected_club or ai_selected_club in {"PitchingWedge", "GapWedge", "SandWedge"}:
+    wedge_bucket_count = club_report.metrics.get("wedge_valid_buckets")
+    wedge_radius = club_report.metrics.get("wedge_dispersion_radius")
+    wedge_lateral = club_report.metrics.get("wedge_lateral_abs_mean")
+    wedge_miss = club_report.metrics.get("wedge_big_miss_rate_pct")
+
+    if wedge_bucket_count and wedge_bucket_count > 0:
+        st.caption("웨지 v5 · 10m 거리대별 탄착군 평가")
+        w1, w2, w3, w4 = st.columns(4)
+        w1.metric("평가 거리대", f"{int(wedge_bucket_count)}개")
+        w2.metric(
+            "68% 탄착군 반경",
+            "-" if wedge_radius is None else f"{float(wedge_radius):.1f}m",
+        )
+        w3.metric(
+            "평균 좌우 편차",
+            "-" if wedge_lateral is None else f"{float(wedge_lateral):.1f}m",
+        )
+        w4.metric(
+            "큰 미스 비율",
+            "-" if wedge_miss is None else f"{float(wedge_miss):.0f}%",
+        )
+    else:
+        st.info(
+            "웨지 전용 탄착군 평가를 위해 같은 10m 거리대에 최소 3샷이 필요합니다. "
+            "현재는 일반 평가를 참고용으로 표시합니다."
+        )
+
+        detail_left, detail_right = st.columns(2)
+        with detail_left:
+            st.markdown("#### 장점")
+            if club_report.strengths:
+                for message in club_report.strengths:
+                    st.success(message)
+            else:
+                st.info("뚜렷한 우위 지표가 없습니다.")
+
+        with detail_right:
+            st.markdown("#### 개선 필요")
+            if club_report.improvements:
+                for message in club_report.improvements:
+                    st.warning(message)
+            else:
+                st.success("최근 기준 대비 뚜렷한 악화 지표가 없습니다.")
+
+        st.markdown("#### 추천 연습")
+        for task in club_report.tasks:
+            st.markdown(f"- {task}")
+
+        if club_report.baseline_sessions < 3:
+            st.caption(
+                "※ 해당 클럽의 과거 비교 세션이 3회 미만이므로 "
+                "현재 점수는 절대 평가보다 참고용 성격이 강합니다."
+            )

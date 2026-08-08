@@ -1,0 +1,455 @@
+{
+  "version": "6.0",
+  "model_name": "DODOS AI Coach v6",
+  "methodology": {
+    "score_mix": {
+      "performance": 0.5,
+      "consistency": 0.3,
+      "trend": 0.2
+    },
+    "notes": [
+      "Performance는 선택한 목표 수준에 비해 오늘 샷 품질이 어느 정도인지 평가합니다.",
+      "Consistency는 당일 Carry/좌우/Launch 분산을 이용해 샷 재현성을 평가합니다.",
+      "Trend는 최근 최대 10회 자기 기록 대비 흐름을 평가하며, 최근 평균을 유지하면 약 85점을 부여해 이미 좋은 골퍼가 정체라는 이유만으로 과도하게 감점되지 않도록 합니다.",
+      "Ball Speed와 Carry 절대값은 신체조건 영향을 크게 받으므로 핸디캡 절대기준보다 Trend에 주로 반영합니다.",
+      "v6에서는 상단 요약을 metric 나열이 아닌 클럽 중심 코칭 문장으로 생성합니다."
+    ],
+    "sources": [
+      {
+        "name": "TrackMan Launch Angle",
+        "basis": "Tour/Combine averages and Optimizer standard assumptions",
+        "retrieved": "2026-08-08"
+      },
+      {
+        "name": "TrackMan Ball Speed",
+        "basis": "Tour/Combine averages and Optimizer standard assumptions",
+        "retrieved": "2026-08-08"
+      },
+      {
+        "name": "TrackMan Spin Rate",
+        "basis": "Tour/Combine averages and Optimizer standard assumptions",
+        "retrieved": "2026-08-08"
+      },
+      {
+        "name": "TrackMan Attack Angle",
+        "basis": "Tour/Combine averages and Optimizer methodology",
+        "retrieved": "2026-08-08"
+      }
+    ]
+  },
+  "goal_profiles": {
+    "bogey": {
+      "label": "보기 플레이어",
+      "description": "90타 전후를 안정적으로 만드는 단계",
+      "efficiency_relax": 0.035,
+      "direction_multiplier": 1.45,
+      "consistency_multiplier": 1.35,
+      "path_multiplier": 1.4,
+      "launch_extra": 2.5,
+      "spin_multiplier_low": 0.82,
+      "spin_multiplier_high": 1.25,
+      "attack_extra": 2.0
+    },
+    "80s": {
+      "label": "80타 플레이어",
+      "description": "80타대를 안정적으로 유지하는 단계",
+      "efficiency_relax": 0.018,
+      "direction_multiplier": 1.2,
+      "consistency_multiplier": 1.18,
+      "path_multiplier": 1.18,
+      "launch_extra": 1.5,
+      "spin_multiplier_low": 0.9,
+      "spin_multiplier_high": 1.14,
+      "attack_extra": 1.2
+    },
+    "single": {
+      "label": "싱글 핸디캡",
+      "description": "싱글 핸디캡 수준의 효율과 재현성을 목표",
+      "efficiency_relax": 0.0,
+      "direction_multiplier": 1.0,
+      "consistency_multiplier": 1.0,
+      "path_multiplier": 1.0,
+      "launch_extra": 0.0,
+      "spin_multiplier_low": 1.0,
+      "spin_multiplier_high": 1.0,
+      "attack_extra": 0.0
+    }
+  },
+  "club_reference": {
+    "Driver": {
+      "smash_min": 1.46,
+      "abs_side_max_m": 12.0,
+      "face_to_path_abs_max_deg": 3.0,
+      "carry_cv_max_pct": 7.5,
+      "launch_range_deg": [
+        10.0,
+        16.0
+      ],
+      "spin_range_rpm": [
+        1800,
+        3000
+      ],
+      "attack_range_deg": [
+        -2.0,
+        5.0
+      ],
+      "weights": {
+        "smash": 0.24,
+        "abs_side": 0.24,
+        "face_to_path": 0.16,
+        "carry_cv": 0.16,
+        "launch": 0.08,
+        "spin": 0.08,
+        "attack": 0.04
+      }
+    },
+    "5Wood": {
+      "smash_min": 1.43,
+      "abs_side_max_m": 10.0,
+      "face_to_path_abs_max_deg": 3.0,
+      "carry_cv_max_pct": 7.0,
+      "launch_range_deg": [
+        10.0,
+        16.0
+      ],
+      "spin_range_rpm": [
+        2800,
+        4500
+      ],
+      "attack_range_deg": [
+        -4.0,
+        1.0
+      ],
+      "weights": {
+        "smash": 0.2,
+        "abs_side": 0.25,
+        "face_to_path": 0.15,
+        "carry_cv": 0.2,
+        "launch": 0.08,
+        "spin": 0.08,
+        "attack": 0.04
+      }
+    },
+    "4Hybrid": {
+      "smash_min": 1.4,
+      "abs_side_max_m": 9.0,
+      "face_to_path_abs_max_deg": 3.0,
+      "carry_cv_max_pct": 6.5,
+      "launch_range_deg": [
+        12.0,
+        18.0
+      ],
+      "spin_range_rpm": [
+        3200,
+        4800
+      ],
+      "attack_range_deg": [
+        -5.0,
+        0.0
+      ],
+      "weights": {
+        "smash": 0.18,
+        "abs_side": 0.26,
+        "face_to_path": 0.14,
+        "carry_cv": 0.22,
+        "launch": 0.08,
+        "spin": 0.08,
+        "attack": 0.04
+      }
+    },
+    "5Iron": {
+      "smash_min": 1.37,
+      "abs_side_max_m": 8.0,
+      "face_to_path_abs_max_deg": 2.8,
+      "carry_cv_max_pct": 6.0,
+      "launch_range_deg": [
+        13.0,
+        19.0
+      ],
+      "spin_range_rpm": [
+        4000,
+        5600
+      ],
+      "attack_range_deg": [
+        -6.0,
+        -1.0
+      ],
+      "weights": {
+        "smash": 0.14,
+        "abs_side": 0.25,
+        "face_to_path": 0.13,
+        "carry_cv": 0.26,
+        "launch": 0.08,
+        "spin": 0.1,
+        "attack": 0.04
+      }
+    },
+    "6Iron": {
+      "smash_min": 1.36,
+      "abs_side_max_m": 7.5,
+      "face_to_path_abs_max_deg": 2.8,
+      "carry_cv_max_pct": 5.8,
+      "launch_range_deg": [
+        14.0,
+        20.0
+      ],
+      "spin_range_rpm": [
+        4700,
+        6300
+      ],
+      "attack_range_deg": [
+        -6.0,
+        -1.5
+      ],
+      "weights": {
+        "smash": 0.13,
+        "abs_side": 0.25,
+        "face_to_path": 0.13,
+        "carry_cv": 0.26,
+        "launch": 0.08,
+        "spin": 0.11,
+        "attack": 0.04
+      }
+    },
+    "7Iron": {
+      "smash_min": 1.35,
+      "abs_side_max_m": 7.0,
+      "face_to_path_abs_max_deg": 2.6,
+      "carry_cv_max_pct": 5.5,
+      "launch_range_deg": [
+        16.0,
+        22.0
+      ],
+      "spin_range_rpm": [
+        5200,
+        7000
+      ],
+      "attack_range_deg": [
+        -6.0,
+        -2.0
+      ],
+      "weights": {
+        "smash": 0.12,
+        "abs_side": 0.26,
+        "face_to_path": 0.12,
+        "carry_cv": 0.27,
+        "launch": 0.08,
+        "spin": 0.11,
+        "attack": 0.04
+      }
+    },
+    "8Iron": {
+      "smash_min": 1.33,
+      "abs_side_max_m": 6.5,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 5.3,
+      "launch_range_deg": [
+        18.0,
+        24.0
+      ],
+      "spin_range_rpm": [
+        6000,
+        7800
+      ],
+      "attack_range_deg": [
+        -7.0,
+        -2.0
+      ],
+      "weights": {
+        "smash": 0.1,
+        "abs_side": 0.26,
+        "face_to_path": 0.12,
+        "carry_cv": 0.28,
+        "launch": 0.08,
+        "spin": 0.12,
+        "attack": 0.04
+      }
+    },
+    "9Iron": {
+      "smash_min": 1.31,
+      "abs_side_max_m": 6.0,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 5.0,
+      "launch_range_deg": [
+        20.0,
+        27.0
+      ],
+      "spin_range_rpm": [
+        6800,
+        8800
+      ],
+      "attack_range_deg": [
+        -7.0,
+        -2.5
+      ],
+      "weights": {
+        "smash": 0.09,
+        "abs_side": 0.26,
+        "face_to_path": 0.12,
+        "carry_cv": 0.29,
+        "launch": 0.08,
+        "spin": 0.12,
+        "attack": 0.04
+      }
+    },
+    "PitchingWedge": {
+      "smash_min": 1.28,
+      "abs_side_max_m": 5.5,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 5.0,
+      "launch_range_deg": [
+        23.0,
+        31.0
+      ],
+      "spin_range_rpm": [
+        7800,
+        10200
+      ],
+      "attack_range_deg": [
+        -8.0,
+        -3.0
+      ],
+      "weights": {
+        "smash": 0.08,
+        "abs_side": 0.25,
+        "face_to_path": 0.11,
+        "carry_cv": 0.3,
+        "launch": 0.08,
+        "spin": 0.14,
+        "attack": 0.04
+      }
+    },
+    "50Wedge": {
+      "smash_min": 1.2,
+      "abs_side_max_m": 5.0,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 5.5,
+      "launch_range_deg": [
+        27.0,
+        36.0
+      ],
+      "spin_range_rpm": [
+        8000,
+        11000
+      ],
+      "attack_range_deg": [
+        -9.0,
+        -3.0
+      ],
+      "weights": {
+        "smash": 0.05,
+        "abs_side": 0.25,
+        "face_to_path": 0.1,
+        "carry_cv": 0.33,
+        "launch": 0.08,
+        "spin": 0.15,
+        "attack": 0.04
+      }
+    },
+    "56Wedge": {
+      "smash_min": 1.12,
+      "abs_side_max_m": 4.5,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 6.0,
+      "launch_range_deg": [
+        30.0,
+        42.0
+      ],
+      "spin_range_rpm": [
+        8000,
+        11500
+      ],
+      "attack_range_deg": [
+        -10.0,
+        -3.0
+      ],
+      "weights": {
+        "smash": 0.04,
+        "abs_side": 0.24,
+        "face_to_path": 0.1,
+        "carry_cv": 0.34,
+        "launch": 0.08,
+        "spin": 0.16,
+        "attack": 0.04
+      }
+    },
+    "SandWedge": {
+      "smash_min": 1.1,
+      "abs_side_max_m": 4.5,
+      "face_to_path_abs_max_deg": 2.5,
+      "carry_cv_max_pct": 6.5,
+      "launch_range_deg": [
+        31.0,
+        44.0
+      ],
+      "spin_range_rpm": [
+        8000,
+        11500
+      ],
+      "attack_range_deg": [
+        -10.0,
+        -3.0
+      ],
+      "weights": {
+        "smash": 0.04,
+        "abs_side": 0.24,
+        "face_to_path": 0.1,
+        "carry_cv": 0.34,
+        "launch": 0.08,
+        "spin": 0.16,
+        "attack": 0.04
+      }
+    }
+  },
+  "wedge_benchmark": {
+    "version": "1.0-provisional",
+    "status": "DODOS provisional benchmark",
+    "bucket_size_m": 10,
+    "min_shots_per_bucket": 3,
+    "performance_weights": {
+      "dispersion_radius": 0.45,
+      "lateral_accuracy": 0.3,
+      "big_miss_rate": 0.15,
+      "launch_stability": 0.1
+    },
+    "consistency_weights": {
+      "dispersion_radius": 0.6,
+      "lateral_spread": 0.4
+    },
+    "trend_weights": {
+      "dispersion_radius": 0.5,
+      "lateral_accuracy": 0.3,
+      "big_miss_rate": 0.2
+    },
+    "goals": {
+      "bogey": {
+        "dispersion_radius_max_m": 9.0,
+        "lateral_abs_mean_max_m": 7.0,
+        "big_miss_rate_max_pct": 20.0,
+        "lateral_std_max_m": 7.0,
+        "launch_std_max_deg": 6.0
+      },
+      "80s": {
+        "dispersion_radius_max_m": 7.0,
+        "lateral_abs_mean_max_m": 5.5,
+        "big_miss_rate_max_pct": 15.0,
+        "lateral_std_max_m": 5.5,
+        "launch_std_max_deg": 5.0
+      },
+      "single": {
+        "dispersion_radius_max_m": 5.5,
+        "lateral_abs_mean_max_m": 4.5,
+        "big_miss_rate_max_pct": 10.0,
+        "lateral_std_max_m": 4.5,
+        "launch_std_max_deg": 4.0
+      }
+    },
+    "notes": [
+      "웨지는 전체 Carry 표준편차를 사용하지 않습니다.",
+      "Carry를 10m 단위 거리 버킷으로 자동 분류하고, 최소 3샷 이상인 버킷만 평가합니다.",
+      "각 버킷의 Carry/TotalSide 좌표 중심에서 각 샷까지의 2D 거리 중 68 percentile을 dispersion radius로 사용합니다.",
+      "큰 미스는 목표 dispersion radius의 1.5배를 벗어나거나 목표 좌우편차의 1.5배를 벗어난 샷으로 정의합니다.",
+      "목표별 임계값은 공식 TrackMan handicap 표가 아니라 DODOS 초기 튜닝용 provisional benchmark입니다."
+    ]
+  }
+}
