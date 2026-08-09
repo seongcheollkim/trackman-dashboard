@@ -21,6 +21,9 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+# Shot list: AG Grid dark interactive table
+from st_aggrid import AgGrid, GridOptionsBuilder
+
 _FONT_CONFIGURED = False
 
 def configure_matplotlib_korean_font() -> None:
@@ -507,6 +510,35 @@ hr { border-color:#223044; margin: 1.2rem 0; }
 }
 .tm-shot-heading-title {font-size:1.18rem;font-weight:800;color:#f4f8ff}
 .tm-shot-heading-sub {font-size:.85rem;color:#9fb0c2}
+
+/* AI club detail: match the dashboard's bright text hierarchy */
+.st-key-ai_club_detail h3,
+.st-key-ai_club_detail h4,
+.st-key-ai_club_detail [data-testid="stMarkdownContainer"] p,
+.st-key-ai_club_detail [data-testid="stMetricLabel"] p,
+.st-key-ai_club_detail [data-testid="stMetricValue"],
+.st-key-ai_club_detail [data-testid="stMetricValue"] > div {
+  color:#f4f8ff !important;
+  opacity:1 !important;
+}
+.st-key-ai_club_detail [data-testid="stMetricLabel"] { opacity:1 !important; }
+.st-key-ai_club_detail [data-testid="stCaptionContainer"],
+.st-key-ai_club_detail .stCaption { color:#c3d0de !important; opacity:1 !important; }
+.st-key-ai_club_detail [data-baseweb="select"] > div {
+  background:#0d1721 !important;
+  color:#f4f8ff !important;
+  border-color:#31445a !important;
+}
+.st-key-ai_club_detail [data-baseweb="select"] span,
+.st-key-ai_club_detail [data-baseweb="select"] input {
+  color:#f4f8ff !important;
+}
+.ai-club-detail-title {
+  color:#f4f8ff !important;
+  font-size:1.45rem;
+  font-weight:850;
+  margin:18px 0 10px;
+}
 .tm-shot-compare-grid{display:grid;grid-template-columns:repeat(4,minmax(190px,1fr));gap:12px;margin:10px 0 18px}
 .tm-shot-compare-card{border:1px solid #263548;border-radius:10px;background:linear-gradient(180deg,#111e2b,#0d1721);padding:13px 14px}
 .tm-shot-compare-title{font-weight:800;color:#f3f7fb;font-size:.95rem;margin-bottom:10px}
@@ -2603,11 +2635,10 @@ def _render_clickable_shot_distribution(
     """
     Plotly 클릭 선택형 탄착군.
 
-    v8 개선:
-    - 모든 샷을 단일 trace로 그려 Plotly point index와 실제 shot_index를 1:1로 유지
-    - customdata를 1차원 정수로 저장
-    - Streamlit Plotly selection event의 여러 반환 형태를 모두 처리
-    - 선택 샷이 바뀔 때 component key도 변경해 이전 selection state를 제거
+    - 모든 실제 샷은 단일 trace를 유지해 shot_index 연동 안정성 보존
+    - 선택 샷은 오렌지 중심점 + 2중 halo/glow + Shot 라벨로 강조
+    - 0m 목표선은 노란 점선, 오늘 평균선은 초록 점선
+    - 다크 대시보드와 동일한 배경/그리드 사용
     """
     try:
         import plotly.graph_objects as go
@@ -2634,18 +2665,22 @@ def _render_clickable_shot_distribution(
         st.info("탄착군 데이터가 없습니다.")
         return selected_index
 
-    # 단일 trace를 유지하면서 선택 샷만 크기/테두리로 강조합니다.
-    marker_sizes = [
-        17 if int(idx) == int(selected_index) else 9
-        for idx in work["_shot_index"]
-    ]
-    marker_line_widths = [
-        3 if int(idx) == int(selected_index) else 0
+    labels = [
+        f"Shot {_shot_display_number(shots.iloc[int(idx)], int(idx))}"
         for idx in work["_shot_index"]
     ]
 
-    labels = [
-        f"Shot {_shot_display_number(shots.iloc[int(idx)], int(idx))}"
+    # 실제 샷 trace. 선택 샷도 여기 안에 그대로 존재하므로 클릭 mapping은 변하지 않습니다.
+    marker_sizes = [
+        12 if int(idx) == int(selected_index) else 9
+        for idx in work["_shot_index"]
+    ]
+    marker_colors = [
+        "#FF8A32" if int(idx) == int(selected_index) else "#3D94FF"
+        for idx in work["_shot_index"]
+    ]
+    marker_line_widths = [
+        2 if int(idx) == int(selected_index) else 0
         for idx in work["_shot_index"]
     ]
 
@@ -2657,10 +2692,13 @@ def _render_clickable_shot_distribution(
             mode="markers",
             marker={
                 "size": marker_sizes,
-                "opacity": 0.82,
-                "line": {"width": marker_line_widths},
+                "color": marker_colors,
+                "opacity": 0.90,
+                "line": {
+                    "width": marker_line_widths,
+                    "color": "#FFF2D8",
+                },
             },
-            # 1차원 정수 customdata: 클릭 결과에서 곧바로 실제 shot_index 복원
             customdata=work["_shot_index"].astype(int).tolist(),
             text=labels,
             hovertemplate=(
@@ -2673,7 +2711,52 @@ def _render_clickable_shot_distribution(
         )
     )
 
-    # 탄착군 중앙선(0m): 노란색 점선
+    # 선택 샷 static glow/halo.
+    # CSS pulse 대신 Plotly 자체 trace로 만들어 Streamlit rerun/iframe 영향을 받지 않습니다.
+    selected_point = work[work["_shot_index"] == selected_index]
+    if not selected_point.empty:
+        selected_x = float(selected_point.iloc[0]["_side"])
+        selected_y = float(selected_point.iloc[0]["_distance"])
+        selected_shot_no = _shot_display_number(shots.iloc[selected_index], selected_index)
+
+        # 바깥 halo
+        fig.add_trace(
+            go.Scatter(
+                x=[selected_x],
+                y=[selected_y],
+                mode="markers",
+                marker={
+                    "size": 32,
+                    "color": "rgba(255,138,50,0.10)",
+                    "line": {"width": 2, "color": "rgba(255,138,50,0.28)"},
+                },
+                customdata=[selected_index],
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+        # 안쪽 glow ring + Shot 라벨
+        fig.add_trace(
+            go.Scatter(
+                x=[selected_x],
+                y=[selected_y],
+                mode="markers+text",
+                marker={
+                    "size": 22,
+                    "color": "rgba(255,138,50,0.04)",
+                    "line": {"width": 3, "color": "#FFD54F"},
+                },
+                text=[f"Shot {selected_shot_no}"],
+                textposition="top center",
+                textfont={"color": "#FFD54F", "size": 11},
+                customdata=[selected_index],
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+    # 중앙 목표선(0m)
     fig.add_vline(
         x=0,
         line_width=2,
@@ -2682,7 +2765,7 @@ def _render_clickable_shot_distribution(
         opacity=0.85,
     )
 
-    # 탄착군 평균 좌우 편차선: 초록색 점선
+    # 오늘 평균 좌우 편차선
     avg_side = float(work["_side"].mean())
     fig.add_vline(
         x=avg_side,
@@ -2694,18 +2777,32 @@ def _render_clickable_shot_distribution(
         annotation_position="top",
         annotation_font_color="#67CF45",
     )
+
     fig.update_layout(
         height=335,
-        margin={"l": 20, "r": 15, "t": 15, "b": 25},
-        xaxis_title="좌우 편차 (m)",
-        yaxis_title="캐리 (m)" if y_metric == "Carry_m" else "토탈 (m)",
+        margin={"l": 20, "r": 15, "t": 26, "b": 25},
+        paper_bgcolor="#0D1721",
+        plot_bgcolor="#0D1721",
+        font={"color": "#DCE8F5"},
+        xaxis={
+            "title": "좌우 편차 (m)",
+            "gridcolor": "#263548",
+            "zeroline": False,
+            "tickfont": {"color": "#AAB7C7"},
+            "title_font": {"color": "#C9D5E3"},
+        },
+        yaxis={
+            "title": "캐리 (m)" if y_metric == "Carry_m" else "토탈 (m)",
+            "gridcolor": "#263548",
+            "zeroline": False,
+            "tickfont": {"color": "#AAB7C7"},
+            "title_font": {"color": "#C9D5E3"},
+        },
         showlegend=False,
         dragmode=False,
         clickmode="event+select",
     )
 
-    # selected_index를 key에 포함해 선택이 바뀐 뒤 이전 Plotly selection state가
-    # 다음 rerun에 남아 있는 문제를 방지합니다.
     event = st.plotly_chart(
         fig,
         width="stretch",
@@ -2719,8 +2816,6 @@ def _render_clickable_shot_distribution(
         },
     )
 
-    # Streamlit 버전에 따라 event/selection/point가 dict 또는 AttributeDict 형태일 수 있어
-    # 가능한 반환 형태를 모두 처리합니다.
     selection = None
     try:
         selection = event.selection
@@ -2757,23 +2852,20 @@ def _render_clickable_shot_distribution(
         except Exception:
             return None
 
-    # 1순위: customdata = 실제 shot_index
     customdata = _point_value(point, "customdata")
     clicked_index = None
 
     if customdata is not None:
         try:
-            # list/tuple/numpy array 형태
             if isinstance(customdata, (list, tuple, np.ndarray)):
                 if len(customdata):
                     clicked_index = int(customdata[0])
             else:
-                # scalar 형태
                 clicked_index = int(customdata)
         except Exception:
             clicked_index = None
 
-    # 2순위: 단일 trace이므로 point_index/point_number로 work 행을 복원
+    # 메인 trace 클릭의 fallback
     if clicked_index is None:
         for field in ("point_index", "point_number", "pointIndex", "pointNumber"):
             raw = _point_value(point, field)
@@ -2790,8 +2882,7 @@ def _render_clickable_shot_distribution(
     if clicked_index is None:
         return selected_index
 
-    clicked_index = max(0, min(int(clicked_index), len(shots) - 1))
-    return clicked_index
+    return max(0, min(int(clicked_index), len(shots) - 1))
 
 def _shot_table(
     df_shots: pd.DataFrame,
@@ -2800,15 +2891,11 @@ def _shot_table(
     *,
     sort_by_ai_low: bool = False,
 ) -> int:
-    """
-    Streamlit native row-selection table.
-
-    - 행 클릭 -> 상세 샷 이동
-    - AI 점수/상태 표시
-    - AI 낮은 순 보기 지원
-    - 현재 선택 샷은 ▶로 별도 표시
-    """
-    scored = _shot_ai_scores(df_shots, str(df_shots.iloc[0].get("Club", "")) if not df_shots.empty else "")
+    """AG Grid 기반 다크 샷 목록. 행 클릭 시 상세 샷을 변경합니다."""
+    scored = _shot_ai_scores(
+        df_shots,
+        str(df_shots.iloc[0].get("Club", "")) if not df_shots.empty else "",
+    )
 
     table_columns = [
         "StrokeNo", "ShotTimeLocal", "AI점수", "상태",
@@ -2820,12 +2907,8 @@ def _shot_table(
     available = [column for column in table_columns if column in scored.columns]
 
     table_df = scored.loc[:, available].copy()
-    table_df["_shot_index"] = np.arange(len(table_df))
-    table_df.insert(
-        0,
-        "선택",
-        ["▶" if idx == selected_index else "" for idx in range(len(table_df))],
-    )
+    table_df["_shot_index"] = np.arange(len(table_df), dtype=int)
+
     if "상태" in table_df.columns:
         table_df["상태"] = [
             _shot_status_badge(int(score), str(status))
@@ -2837,40 +2920,145 @@ def _shot_table(
             ["AI점수", "_shot_index"],
             ascending=[True, True],
             kind="stable",
-        )
+        ).reset_index(drop=True)
+    else:
+        table_df = table_df.reset_index(drop=True)
 
-    display_df = table_df.drop(columns=["_shot_index"]).reset_index(drop=True)
-    index_map = table_df["_shot_index"].astype(int).tolist()
+    # 선택된 실제 shot_index가 현재 정렬된 grid에서 몇 번째 행인지 계산
+    selected_display_rows = table_df.index[
+        table_df["_shot_index"].astype(int) == int(selected_index)
+    ].tolist()
+    pre_selected_rows = selected_display_rows[:1]
 
-    event = st.dataframe(
-        safe_dataframe_for_streamlit(display_df),
-        width="stretch",
-        height=min(580, max(280, 42 + 35 * min(len(display_df), 14))),
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key=key,
-        column_config={
-            "AI점수": st.column_config.NumberColumn(
-                "AI 점수",
-                help="같은 날 같은 클럽 안에서 평가한 개별 샷 품질 점수",
-                format="%d",
-            ),
-            "상태": st.column_config.TextColumn("상태"),
+    grid_df = safe_dataframe_for_streamlit(table_df)
+    gb = GridOptionsBuilder.from_dataframe(grid_df)
+    gb.configure_default_column(
+        editable=False,
+        sortable=True,
+        filter=False,
+        resizable=True,
+        minWidth=86,
+    )
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False,
+        pre_selected_rows=pre_selected_rows,
+    )
+    gb.configure_grid_options(
+        rowHeight=35,
+        headerHeight=38,
+        suppressCellFocus=True,
+        animateRows=False,
+    )
+    gb.configure_column("_shot_index", hide=True)
+
+    # 사용성이 좋은 기본 폭
+    widths = {
+        "StrokeNo": 78,
+        "ShotTimeLocal": 92,
+        "AI점수": 76,
+        "상태": 105,
+        "SmashFactor": 92,
+        "SpinRate_rpm": 105,
+    }
+    for column, width in widths.items():
+        if column in grid_df.columns:
+            gb.configure_column(column, width=width)
+
+    # 전체 대시보드와 동일한 dark navy theme
+    grid_css = {
+        ".ag-root-wrapper": {
+            "background-color": "#0D1721 !important",
+            "border": "1px solid #263548 !important",
+            "border-radius": "10px !important",
+            "overflow": "hidden !important",
         },
+        ".ag-root-wrapper-body": {"background-color": "#0D1721 !important"},
+        ".ag-header": {
+            "background-color": "#142232 !important",
+            "border-bottom": "1px solid #33465E !important",
+        },
+        ".ag-header-cell": {
+            "background-color": "#142232 !important",
+            "color": "#C9D5E3 !important",
+            "border-right": "1px solid #263548 !important",
+            "font-weight": "700 !important",
+        },
+        ".ag-header-cell-text": {"color": "#C9D5E3 !important"},
+        ".ag-body-viewport": {"background-color": "#0D1721 !important"},
+        ".ag-center-cols-viewport": {"background-color": "#0D1721 !important"},
+        ".ag-row": {
+            "background-color": "#0D1721 !important",
+            "color": "#E8EEF6 !important",
+            "border-bottom": "1px solid #1D2B3B !important",
+        },
+        ".ag-row-even": {"background-color": "#101C29 !important"},
+        ".ag-row-hover": {"background-color": "#17283A !important"},
+        ".ag-row-selected": {
+            "background-color": "#17395D !important",
+            "box-shadow": "inset 4px 0 0 #FF6B1A !important",
+        },
+        ".ag-cell": {
+            "color": "#E8EEF6 !important",
+            "border-right": "1px solid #223044 !important",
+        },
+        ".ag-row-selected .ag-cell": {
+            "color": "#FFFFFF !important",
+            "font-weight": "700 !important",
+        },
+        ".ag-cell-focus": {"border-color": "transparent !important"},
+        ".ag-body-horizontal-scroll": {"background-color": "#0D1721 !important"},
+        ".ag-body-horizontal-scroll-viewport": {"background-color": "#0D1721 !important"},
+        ".ag-horizontal-left-spacer": {"background-color": "#0D1721 !important"},
+        ".ag-horizontal-right-spacer": {"background-color": "#0D1721 !important"},
+    }
+
+    response = AgGrid(
+        grid_df,
+        gridOptions=gb.build(),
+        height=min(580, max(280, 46 + 35 * min(len(grid_df), 14))),
+        theme="streamlit",
+        custom_css=grid_css,
+        update_on=["selectionChanged"],
+        allow_unsafe_jscode=False,
+        enable_enterprise_modules=False,
+        fit_columns_on_grid_load=False,
+        key=key,
     )
 
+    # streamlit-aggrid 1.x 반환 객체/딕셔너리 모두 처리
+    selected_rows = None
     try:
-        rows = event.selection.rows
+        selected_rows = response.selected_rows
     except Exception:
-        rows = []
+        try:
+            selected_rows = response.get("selected_rows")
+        except Exception:
+            selected_rows = None
 
-    if rows:
-        displayed_row = int(rows[-1])
-        if 0 <= displayed_row < len(index_map):
-            return int(index_map[displayed_row])
+    if selected_rows is None:
+        return selected_index
 
-    return selected_index
+    try:
+        if isinstance(selected_rows, pd.DataFrame):
+            if selected_rows.empty:
+                return selected_index
+            raw_index = selected_rows.iloc[-1].get("_shot_index")
+        elif isinstance(selected_rows, list):
+            if not selected_rows:
+                return selected_index
+            raw_index = selected_rows[-1].get("_shot_index")
+        else:
+            selected_frame = pd.DataFrame(selected_rows)
+            if selected_frame.empty:
+                return selected_index
+            raw_index = selected_frame.iloc[-1].get("_shot_index")
+
+        if raw_index is None or pd.isna(raw_index):
+            return selected_index
+        return max(0, min(int(raw_index), len(df_shots) - 1))
+    except Exception:
+        return selected_index
 
 def _club_korean_name(club: str) -> str:
     """내부 클럽 코드를 화면용 한글 클럽명으로 변환합니다."""
@@ -3752,31 +3940,35 @@ with analysis_tabs[2]:
     st.markdown(diagnosis_html(ai_report), unsafe_allow_html=True)
 
     if ai_report.clubs:
-        st.markdown("### 클럽별 상세 진단")
-        club_names = [item.club for item in ai_report.clubs]
-        default_index = club_names.index(club) if club in club_names else 0
-        ai_selected_club = st.selectbox(
-            "클럽별 AI 평가",
-            club_names,
-            index=default_index,
-            format_func=_club_korean_name,
-            key=f"ai_club::{selected_date}",
-        )
-        club_report = next(
-            item for item in ai_report.clubs
-            if item.club == ai_selected_club
-        )
+        with st.container(key="ai_club_detail"):
+            st.markdown(
+                "<div class='ai-club-detail-title'>클럽별 상세 진단</div>",
+                unsafe_allow_html=True,
+            )
+            club_names = [item.club for item in ai_report.clubs]
+            default_index = club_names.index(club) if club in club_names else 0
+            ai_selected_club = st.selectbox(
+                "클럽별 AI 평가",
+                club_names,
+                index=default_index,
+                format_func=_club_korean_name,
+                key=f"ai_club::{selected_date}",
+            )
+            club_report = next(
+                item for item in ai_report.clubs
+                if item.club == ai_selected_club
+            )
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("AI 점수", f"{club_report.score:.0f}/100")
-        c2.metric("등급", club_report.grade)
-        c3.metric("신뢰도", f"{club_report.confidence}%")
-        c4.metric("분석 샷", f"{club_report.shots}개")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("AI 점수", f"{club_report.score:.0f}/100")
+            c2.metric("등급", club_report.grade)
+            c3.metric("신뢰도", f"{club_report.confidence}%")
+            c4.metric("분석 샷", f"{club_report.shots}개")
 
-        b1, b2, b3 = st.columns(3)
-        b1.metric("Performance", f"{club_report.performance_score:.0f}/100")
-        b2.metric("Consistency", f"{club_report.consistency_score:.0f}/100")
-        b3.metric("Trend", f"{club_report.trend_score:.0f}/100")
+            b1, b2, b3 = st.columns(3)
+            b1.metric("Performance", f"{club_report.performance_score:.0f}/100")
+            b2.metric("Consistency", f"{club_report.consistency_score:.0f}/100")
+            b3.metric("Trend", f"{club_report.trend_score:.0f}/100")
 
 
 if "Wedge" in ai_selected_club or ai_selected_club in {"PitchingWedge", "GapWedge", "SandWedge"}:
