@@ -3,6 +3,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # macOS
 .DS_Store
@@ -16,13 +17,32 @@ data/
 .cache/
 *.parquet
 
-# Local JSON exports
-*.json
+# Runtime / local JSON exports
+# JSON 전체를 막지 않고 로컬 데이터 위치만 제외합니다.
+reports/
+exports/
+tmp/
+*.local.json
+
+# AI reference data는 Git 관리
+!ai/ai_reference.json
 
 # IDE
 .vscode/
 .idea/
 
+# Runtime logs
+logs/
+*.log
+
+# Local browser profile
 .trackman_browser/
+
+# Local TrackMan API debug exports
 activity_list.curl
 activity_report.curl
+
+# Local backup source
+*_old.py
+*_backup.py
+*_before_*.py

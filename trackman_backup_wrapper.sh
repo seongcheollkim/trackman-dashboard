@@ -3,7 +3,7 @@ set -u
 
 PROJECT_DIR="/Users/justin/Desktop/python/training_golf/trackman_dashboard_project"
 PYTHON="$PROJECT_DIR/.venv/bin/python"
-RUNNER="$PROJECT_DIR/scheduled_trackman_backup.py"
+RUNNER="$PROJECT_DIR/scheduled_dodos_pipeline.py"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/trackman_backup.log"
 
