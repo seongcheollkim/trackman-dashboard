@@ -150,8 +150,24 @@ from trackman_core import (
     parse_trackman_report,
 )
 
-from ai import AI_CSS, diagnose_practice, diagnosis_html, goal_options
-from practice_journal import PracticeJournalService
+from ai import AI_CSS
+
+from ui.common import (
+    classify_face_to_path,
+    classify_path,
+    fmt,
+    fmt_int,
+    mean_existing_column,
+    render_top_metrics,
+    side_text,
+)
+from ui.ai_summary import render_ai_summary
+from ui.ai_diagnosis import render_ai_club_detail
+from ui.shot_analysis import render_single_shot_analysis
+from ui.average_analysis import render_average_analysis
+from charts.club_visuals import club_path_fig, impact_face_fig, loft_spin_fig
+from ui.practice_journal import render_practice_journal_tab
+from services.journal_sync_service import sync_journal_db_after_pull
 
 st.set_page_config(
     page_title="TRACKMAN DASHBOARD",
@@ -875,350 +891,6 @@ SHORT_CLUB = {
 
 
 APP_DIR = Path(__file__).resolve().parent
-CLUB_ASSET_DIR = APP_DIR / "assets" / "clubs"
-
-CLUB_ASSET_MAP = {
-    "Driver": {"face": "qi35_face.png", "side": "qi35_side.svg"},
-    "5Wood": {"face": "stealth2_face.png", "side": "stealth2_side.svg"},
-    "4Hybrid": {"face": "g430_face.png", "side": "g430_side.svg"},
-
-    "5Iron": {"face": "p790_face.png", "side": "p790_side.svg"},
-    "6Iron": {"face": "p790_face.png", "side": "p790_side.svg"},
-    "7Iron": {"face": "p790_face.png", "side": "p790_side.svg"},
-    "8Iron": {"face": "p790_face.png", "side": "p790_side.svg"},
-    "9Iron": {"face": "p790_face.png", "side": "p790_side.svg"},
-    "PitchingWedge": {"face": "p790_face.png", "side": "p790_side.svg"},
-
-    "50Wedge": {"face": "zipcore_face.png", "side": "zipcore_side.svg"},
-    "56Wedge": {"face": "zipcore_face.png", "side": "zipcore_side.svg"},
-    "SandWedge": {"face": "zipcore_face.png", "side": "zipcore_side.svg"},
-}
-
-
-# 사용 중인 실제 클럽군에 맞춘 임팩트 맵 시각화 보정값.
-# physical_width_mm / physical_height_mm는 타점 데이터(mm)를 화면 좌표로 옮기기 위한
-# 시각화 기준치이며 제조사의 공식 헤드 치수 표기는 아닙니다.
-IMPACT_CALIBRATION = {
-    "Driver": {
-        "model": "TaylorMade Qi35",
-        "physical_width_mm": 102.0,
-        "physical_height_mm": 56.0,
-        "face_center": (0.0, -0.5),
-        "face_plot_size": (37.0, 18.0),
-        "side_center": (0.0, -0.7),
-        "side_plot_size": (35.0, 17.0),
-    },
-    "5Wood": {
-        "model": "TaylorMade Stealth 2 5W",
-        "physical_width_mm": 90.0,
-        "physical_height_mm": 46.0,
-        "face_center": (-0.5, -0.5),
-        "face_plot_size": (34.0, 16.0),
-        "side_center": (-0.5, -0.8),
-        "side_plot_size": (32.0, 15.0),
-    },
-    "4Hybrid": {
-        "model": "PING G430 4H",
-        "physical_width_mm": 84.0,
-        "physical_height_mm": 43.0,
-        "face_center": (-0.5, -0.7),
-        "face_plot_size": (31.0, 15.0),
-        "side_center": (-0.5, -0.8),
-        "side_plot_size": (30.0, 14.0),
-    },
-    "P790": {
-        "model": "TaylorMade P790",
-        "physical_width_mm": 80.0,
-        "physical_height_mm": 45.0,
-        "face_center": (-1.0, -0.4),
-        "face_plot_size": (30.0, 17.0),
-        "side_center": (-1.0, -0.7),
-        "side_plot_size": (29.0, 16.0),
-    },
-    "ZipCore": {
-        "model": "Cleveland ZipCore",
-        "physical_width_mm": 79.0,
-        "physical_height_mm": 47.0,
-        "face_center": (-1.0, -0.2),
-        "face_plot_size": (29.5, 17.5),
-        "side_center": (-1.0, -0.5),
-        "side_plot_size": (28.5, 16.5),
-    },
-}
-
-
-def get_impact_calibration(club: str) -> dict:
-    if club == "Driver":
-        return IMPACT_CALIBRATION["Driver"]
-    if club == "5Wood" or "Wood" in str(club):
-        return IMPACT_CALIBRATION["5Wood"]
-    if club == "4Hybrid" or "Hybrid" in str(club):
-        return IMPACT_CALIBRATION["4Hybrid"]
-    if club in {"50Wedge", "52Wedge", "56Wedge", "SandWedge"} or "Wedge" in str(club):
-        return IMPACT_CALIBRATION["ZipCore"]
-    return IMPACT_CALIBRATION["P790"]
-
-
-def impact_mm_to_plot(
-    offset_mm,
-    height_mm,
-    club: str,
-    mode: str = "face",
-) -> tuple[float, float]:
-    """TrackMan 타점 mm를 선택 클럽 SVG의 실제 페이스 영역에 맞춰 변환."""
-    cal = get_impact_calibration(club)
-
-    if mode == "face":
-        center_x, center_y = cal["face_center"]
-        plot_width, plot_height = cal["face_plot_size"]
-    else:
-        center_x, center_y = cal["side_center"]
-        plot_width, plot_height = cal["side_plot_size"]
-
-    half_width_mm = cal["physical_width_mm"] / 2.0
-    half_height_mm = cal["physical_height_mm"] / 2.0
-
-    try:
-        ox = 0.0 if pd.isna(offset_mm) else float(offset_mm)
-    except Exception:
-        ox = 0.0
-    try:
-        hy = 0.0 if pd.isna(height_mm) else float(height_mm)
-    except Exception:
-        hy = 0.0
-
-    # 비정상적으로 큰 값은 클럽 페이스 가장자리에서 잘라 표시
-    ox = float(np.clip(ox, -half_width_mm, half_width_mm))
-    hy = float(np.clip(hy, -half_height_mm, half_height_mm))
-
-    x = center_x + ox * (plot_width / cal["physical_width_mm"])
-    y = center_y + hy * (plot_height / cal["physical_height_mm"])
-    return x, y
-
-
-# 승인된 렌더 이미지에서 "실제 페이스 중심"이 이미지 캔버스 중앙과 다르기 때문에
-# 클럽별로 페이스 중심 위치를 보정한다.
-#
-# face_center_x / face_center_y:
-#   이미지의 왼쪽/아래쪽을 0, 오른쪽/위쪽을 1로 본 정규화 좌표.
-# display_width:
-#   대시보드 좌표계에서 렌더 이미지가 차지할 가로 폭.
-CLUB_RENDER_LAYOUT = {
-    "Driver": {
-        "face_center_x": 0.43,
-        "face_center_y": 0.43,
-        "display_width": 47.0,
-    },
-    "5Wood": {
-        "face_center_x": 0.45,
-        "face_center_y": 0.43,
-        "display_width": 46.0,
-    },
-    "4Hybrid": {
-        "face_center_x": 0.44,
-        "face_center_y": 0.43,
-        "display_width": 43.0,
-    },
-    "P790": {
-        "face_center_x": 0.37,
-        "face_center_y": 0.41,
-        "display_width": 45.0,
-    },
-    "ZipCore": {
-        "face_center_x": 0.38,
-        "face_center_y": 0.41,
-        "display_width": 44.0,
-    },
-}
-
-
-def get_render_layout(club: str) -> dict:
-    if club == "Driver":
-        return CLUB_RENDER_LAYOUT["Driver"]
-    if club == "5Wood" or "Wood" in str(club):
-        return CLUB_RENDER_LAYOUT["5Wood"]
-    if club == "4Hybrid" or "Hybrid" in str(club):
-        return CLUB_RENDER_LAYOUT["4Hybrid"]
-    if club in {"50Wedge", "52Wedge", "56Wedge", "SandWedge"} or "Wedge" in str(club):
-        return CLUB_RENDER_LAYOUT["ZipCore"]
-    return CLUB_RENDER_LAYOUT["P790"]
-
-
-def get_club_asset(club: str, view: str = "face") -> Path | None:
-    """선택한 클럽과 뷰에 해당하는 SVG 경로를 반환."""
-    mapping = CLUB_ASSET_MAP.get(club)
-
-    if mapping is None:
-        if "Wood" in str(club):
-            mapping = CLUB_ASSET_MAP["5Wood"]
-        elif "Hybrid" in str(club):
-            mapping = CLUB_ASSET_MAP["4Hybrid"]
-        elif "Iron" in str(club):
-            mapping = CLUB_ASSET_MAP["7Iron"]
-        elif "Wedge" in str(club):
-            mapping = CLUB_ASSET_MAP["50Wedge"]
-        else:
-            mapping = CLUB_ASSET_MAP["Driver"]
-
-    path = CLUB_ASSET_DIR / mapping.get(view, mapping["face"])
-    return path if path.exists() else None
-
-
-@st.cache_data(show_spinner=False)
-def load_club_image(image_path: str) -> np.ndarray:
-    """PNG 또는 SVG 클럽 이미지를 RGBA 배열로 로드."""
-    path = Path(image_path)
-
-    if path.suffix.lower() == ".svg":
-        import io
-        import cairosvg
-        from PIL import Image
-
-        png_bytes = cairosvg.svg2png(url=str(path), output_width=1400)
-        return np.asarray(Image.open(io.BytesIO(png_bytes)).convert("RGBA"))
-
-    return mpimg.imread(path)
-
-
-def draw_club_asset(
-    ax,
-    club: str,
-    view: str = "face",
-    extent=(-24, 24, -17, 18),
-) -> bool:
-    """
-    승인된 렌더 이미지를 원본 종횡비로 표시한다.
-
-    face 뷰에서는 이미지 캔버스 중앙이 아니라 실제 클럽 페이스 중심이
-    그래프의 (0, 0)에 오도록 클럽별 보정값을 적용한다.
-    """
-    path = get_club_asset(club, view)
-    if path is None:
-        return False
-
-    image = load_club_image(str(path))
-    img_h, img_w = image.shape[:2]
-    img_ratio = img_w / img_h
-
-    if view == "face":
-        layout = get_render_layout(club)
-        draw_w = float(layout["display_width"])
-        draw_h = draw_w / img_ratio
-
-        face_x = float(layout["face_center_x"])
-        face_y = float(layout["face_center_y"])
-
-        # 실제 페이스 중심이 좌표 (0, 0)에 오도록 이미지 전체를 이동
-        actual_extent = (
-            -face_x * draw_w,
-            (1.0 - face_x) * draw_w,
-            -face_y * draw_h,
-            (1.0 - face_y) * draw_h,
-        )
-    else:
-        x0, x1, y0, y1 = extent
-        box_w = x1 - x0
-        box_h = y1 - y0
-        box_ratio = box_w / box_h
-
-        if img_ratio >= box_ratio:
-            draw_w = box_w
-            draw_h = draw_w / img_ratio
-        else:
-            draw_h = box_h
-            draw_w = draw_h * img_ratio
-
-        cx = (x0 + x1) / 2
-        cy = (y0 + y1) / 2
-        actual_extent = (
-            cx - draw_w / 2,
-            cx + draw_w / 2,
-            cy - draw_h / 2,
-            cy + draw_h / 2,
-        )
-
-    ax.imshow(
-        image,
-        extent=actual_extent,
-        interpolation="lanczos",
-        origin="upper",
-        zorder=0,
-    )
-    return True
-
-
-def mean_existing_column(df: pd.DataFrame, candidates: list[str]) -> float:
-    """후보 컬럼 중 존재하면서 유효한 첫 번째 컬럼의 평균을 반환."""
-    for column in candidates:
-        if column in df.columns:
-            values = pd.to_numeric(df[column], errors="coerce").dropna()
-            if not values.empty:
-                return float(values.mean())
-    return float("nan")
-
-
-def fmt(v: Any, nd: int = 1, suffix: str = "") -> str:
-    try:
-        if pd.isna(v):
-            return "-"
-        return f"{float(v):.{nd}f}{suffix}"
-    except Exception:
-        return "-"
-    
-def fmt_int(v: Any, comma: bool = False) -> str:
-    """화면 표시용 정수 반올림."""
-    try:
-        if pd.isna(v):
-            return "-"
-        value = int(round(float(v)))
-        return f"{value:,}" if comma else str(value)
-    except Exception:
-        return "-"
-
-
-def side_text(v: Any) -> str:
-    try:
-        x = float(v)
-        if abs(x) < 0.5:
-            return "0"
-        return f"{abs(int(round(x)))}{'R' if x > 0 else 'L'}"
-    except Exception:
-        return "-"
-
-def render_top_metrics(items: list[tuple[str, str, str]]) -> None:
-    """상단 KPI 카드를 Markdown 코드 블록으로 오인하지 않도록 한 줄 HTML로 렌더링."""
-    cards: list[str] = []
-
-    for label, value, unit in items:
-        unit_html = f"<span class='tm-kpi-unit'>{unit}</span>" if unit else ""
-        cards.append(
-            "<div class='tm-kpi-card'>"
-            f"<div class='tm-kpi-label'>{label}</div>"
-            f"<div class='tm-kpi-value'>{value}{unit_html}</div>"
-            "</div>"
-        )
-
-    cards_html = "".join(cards)
-    st.markdown(
-        f"<div class='tm-kpi-grid'>{cards_html}</div>",
-        unsafe_allow_html=True,
-    )
-
-
-def classify_face_to_path(v: float | None) -> str:
-    if v is None or pd.isna(v): return "-"
-    if v > 0.8: return "오픈"
-    if v < -0.8: return "클로즈"
-    return "중립"
-
-
-def classify_path(v: float | None) -> str:
-    if v is None or pd.isna(v): return "-"
-    if v > 1.0: return "인-아웃"
-    if v < -1.0: return "아웃-인"
-    return "중립"
-
-
 def load_uploaded_files(files) -> tuple[list[dict], list[str]]:
     all_rows, errors = [], []
     for file in files or []:
@@ -1283,366 +955,6 @@ def render_club_cards(summary: pd.DataFrame, max_cards: int = 6) -> None:
     remain = len(summary) - len(show)
     if remain > 0:
         st.caption(f"+ {remain}개 클럽은 아래 표와 리스트에서 확인")
-
-
-def add_driver_face(ax, mode: str = "front"):
-    # front: face view, side: side/top-like view, top: club path view
-    if mode == "front":
-        body = patches.Ellipse((0, 0), 40, 22, facecolor="#222c36", edgecolor="#8291a5", lw=1.3, alpha=.96)
-        ax.add_patch(body)
-        crown = patches.Ellipse((1, 1.5), 35, 17, facecolor="#2f3a46", edgecolor="none", alpha=.55)
-        ax.add_patch(crown)
-        for y in [-6, -3, 0, 3, 6]: ax.plot([-15, 15], [y, y], color="#7e8da0", lw=.65, alpha=.8)
-        for x in [-15,-10,-5,0,5,10,15]: ax.plot([x,x],[-8,8], color="#334253", lw=.4, alpha=.55)
-        # hosel
-        ax.plot([16, 23], [7, 22], color="#758599", lw=4, alpha=.75)
-        ax.plot([17, 24], [8, 23], color="#d4d9df", lw=1, alpha=.65)
-    elif mode == "side":
-        body = patches.Ellipse((0, 0), 42, 18, facecolor="#222c36", edgecolor="#8291a5", lw=1.3, alpha=.96)
-        ax.add_patch(body)
-        ax.add_patch(patches.Ellipse((-3,-1), 32, 12, facecolor="#303c49", edgecolor="none", alpha=.55))
-        ax.plot([15, 20], [5, 22], color="#758599", lw=4, alpha=.75)
-        ax.plot([-20, 18], [0, 0], color="#6f7e91", lw=.6, alpha=.8)
-    else:
-        body = patches.Ellipse((0,0), .9, .55, facecolor="#222c36", edgecolor="#8291a5", lw=1.3, alpha=.96)
-        ax.add_patch(body)
-        ax.plot([0.36,0.48],[0.18,0.75], color="#758599", lw=4, alpha=.75)
-        ax.plot([0.37,0.49],[0.18,0.75], color="#d4d9df", lw=1, alpha=.7)
-
-
-def impact_face_fig(offset, height, club, points=None, mode="face", figsize=(7.6, 4.3)):
-    """승인된 고해상도 렌더를 사용하는 TrackMan 스타일 페이스 임팩트 카드."""
-    fig, ax = plt.subplots(figsize=figsize, dpi=190)
-    fig.patch.set_facecolor("#0b1016")
-    ax.set_facecolor("#0b1016")
-    ax.set_xlim(-30, 30)
-    ax.set_ylim(-20, 22)
-    ax.set_aspect("equal", adjustable="box")
-    ax.axis("off")
-
-    # 승인된 시안의 클럽 렌더를 크게 배치
-    loaded = draw_club_asset(ax, club, "face")
-    if not loaded:
-        add_driver_face(ax, "front")
-
-    cal = get_impact_calibration(club)
-    center_x, center_y = cal["face_center"]
-    plot_width, plot_height = cal["face_plot_size"]
-
-    # 화면의 실제 페이스 영역에 맞춰 TrackMan mm 좌표를 재매핑
-    layout = get_render_layout(club)
-
-    # 렌더 이미지의 실제 페이스 폭/높이에 맞춘 표시 스케일.
-    # 아이언은 샤프트가 포함된 캔버스 때문에 이미지 전체 폭이 넓으므로
-    # 타점 이동 폭은 페이스 영역 기준으로 별도 계산한다.
-    if club == "Driver":
-        visual_face_width, visual_face_height = 34.0, 14.0
-    elif club == "5Wood" or "Wood" in str(club):
-        visual_face_width, visual_face_height = 32.0, 13.0
-    elif club == "4Hybrid" or "Hybrid" in str(club):
-        visual_face_width, visual_face_height = 29.0, 12.0
-    elif club in {"50Wedge", "52Wedge", "56Wedge", "SandWedge"} or "Wedge" in str(club):
-        visual_face_width, visual_face_height = 28.0, 14.0
-    else:
-        visual_face_width, visual_face_height = 28.5, 13.5
-
-    scale_x = visual_face_width / plot_width
-    scale_y = visual_face_height / plot_height
-
-    def mapped(offset_value, height_value):
-        x0, y0 = impact_mm_to_plot(offset_value, height_value, club, "face")
-        return ((x0 - center_x) * scale_x, (y0 - center_y) * scale_y)
-
-    x, y = mapped(offset, height)
-
-    # 중심 십자선
-    ax.plot([0, 0], [-13.0, 13.0], color="#e2e7eb", lw=1.0, ls=(0, (3, 3)), alpha=.82, zorder=5)
-    ax.plot([-24.0, 24.0], [0, 0], color="#e2e7eb", lw=1.0, ls=(0, (3, 3)), alpha=.82, zorder=5)
-
-    # 개별 타점
-    if points is not None and not points.empty:
-        pts = points.dropna(subset=["ImpactOffset_mm", "ImpactHeight_mm"])
-        if not pts.empty:
-            mapped_points = [mapped(r["ImpactOffset_mm"], r["ImpactHeight_mm"]) for _, r in pts.iterrows()]
-            ax.scatter(
-                [p[0] for p in mapped_points],
-                [p[1] for p in mapped_points],
-                s=10,
-                color="#66a8ff",
-                alpha=.12,
-                edgecolors="none",
-                zorder=6,
-            )
-
-    # 오렌지 글로우
-    for size, alpha, color in [
-        (900, .03, "#ff9a3c"),
-        (580, .06, "#ff8125"),
-        (320, .12, "#ff6c16"),
-        (165, .22, "#ff8b32"),
-    ]:
-        ax.scatter([x], [y], s=size, color=color, alpha=alpha, edgecolors="none", zorder=7)
-
-    ax.scatter([x], [y], s=88, color="#ff8a32", edgecolors="#ffd0a3", lw=1.2, zorder=8)
-    ax.scatter([x], [y], s=18, color="#fff1df", edgecolors="none", zorder=9)
-
-    try:
-        off_val = float(offset)
-        off_dir = "toe" if off_val > .5 else ("heel" if off_val < -.5 else "center")
-        off_num = abs(off_val)
-    except Exception:
-        off_dir, off_num = "-", 0.0
-
-    try:
-        h_val = float(height)
-        h_dir = "above" if h_val > .5 else ("below" if h_val < -.5 else "center")
-        h_num = abs(h_val)
-    except Exception:
-        h_dir, h_num = "-", 0.0
-
-    # 하단 정보 영역
-    ax.text(-21.5, -12.3, "IMPACT OFFSET", color="#d6dde4", fontsize=8.5, fontweight="bold", ha="center")
-    ax.text(-21.5, -16.1, f"{off_num:.0f}", color="#f5f8fb", fontsize=21, fontweight="bold", ha="center")
-    ax.text(-17.4, -15.9, "mm", color="#d6dde4", fontsize=8.5, fontweight="bold", ha="left")
-    ax.text(-21.5, -18.6, off_dir, color="#ff6b00", fontsize=9.5, fontweight="bold", ha="center")
-
-    ax.text(0, -12.3, "IMPACT HEIGHT", color="#d6dde4", fontsize=8.5, fontweight="bold", ha="center")
-    ax.text(0, -16.1, f"{h_num:.0f}", color="#f5f8fb", fontsize=21, fontweight="bold", ha="center")
-    ax.text(4.1, -15.9, "mm", color="#d6dde4", fontsize=8.5, fontweight="bold", ha="left")
-    ax.text(0, -18.6, h_dir, color="#ff6b00", fontsize=9.5, fontweight="bold", ha="center")
-
-    ax.text(21.5, -12.3, "IMPACT POSITION", color="#d6dde4", fontsize=8.5, fontweight="bold", ha="center")
-    ax.text(21.5, -16.1, f"{fmt(offset, 1)} / {fmt(height, 1)}", color="#f5f8fb", fontsize=15, fontweight="bold", ha="center")
-    ax.text(21.5, -18.6, "offset / height", color="#9faab5", fontsize=8.3, fontweight="bold", ha="center")
-
-    ax.text(-27.5, 20.0, club, color="#f4f7fa", fontsize=12, fontweight="bold", va="top")
-    return fig
-
-
-
-def _draw_top_view_club(ax, club: str) -> None:
-    """클럽 패스용 깨끗한 탑뷰 벡터 렌더."""
-    from matplotlib.path import Path as MplPath
-    from matplotlib.patches import PathPatch
-
-    # 클럽군별 실루엣
-    if club == "Driver":
-        verts = [(-.26,.30),(-.06,.43),(.16,.37),(.29,.20),(.31,-.14),(.18,-.34),(-.05,-.40),(-.25,-.26),(-.31,0),(-.26,.30)]
-    elif club == "5Wood" or "Wood" in str(club):
-        verts = [(-.24,.28),(-.05,.39),(.14,.34),(.27,.18),(.29,-.12),(.17,-.31),(-.04,-.36),(-.23,-.24),(-.28,0),(-.24,.28)]
-    elif club == "4Hybrid" or "Hybrid" in str(club):
-        verts = [(-.22,.25),(-.05,.35),(.12,.31),(.24,.16),(.25,-.11),(.14,-.28),(-.03,-.32),(-.20,-.21),(-.25,0),(-.22,.25)]
-    else:
-        verts = [(-.10,.32),(.02,.38),(.10,.26),(.11,-.24),(.02,-.34),(-.10,-.28),(-.12,0),(-.10,.32)]
-
-    codes = [MplPath.MOVETO] + [MplPath.CURVE3]*(len(verts)-2) + [MplPath.CLOSEPOLY]
-    patch = PathPatch(
-        MplPath(verts, codes),
-        facecolor="#121820",
-        edgecolor="#8d99a7",
-        linewidth=1.5,
-        zorder=3,
-    )
-    ax.add_patch(patch)
-
-    # 내부 광택
-    for radius, alpha in [(0.25,.13),(0.20,.10),(0.15,.07)]:
-        ax.add_patch(
-            patches.Ellipse(
-                (-.02,.06), radius*1.6, radius,
-                facecolor="#9ca7b2", edgecolor="none",
-                alpha=alpha, zorder=3
-            )
-        )
-
-    # 호젤/샤프트
-    if "Iron" in str(club) or "Wedge" in str(club):
-        ax.plot([.07,.10],[.26,.54], color="#737f8b", lw=5.2, solid_capstyle="round", zorder=3)
-        ax.plot([.075,.105],[.27,.55], color="#d2d8dd", lw=1.1, alpha=.7, zorder=4)
-    else:
-        ax.plot([.19,.29],[.25,.56], color="#737f8b", lw=5.8, solid_capstyle="round", zorder=3)
-        ax.plot([.195,.295],[.26,.57], color="#d2d8dd", lw=1.1, alpha=.7, zorder=4)
-
-    # 모델명
-    label = "Qi35" if club == "Driver" else "G430" if "Hybrid" in str(club) else "P790" if "Iron" in str(club) else "ZIPCORE" if "Wedge" in str(club) else "STEALTH 2"
-    ax.text(0, -.31 if "Iron" not in str(club) and "Wedge" not in str(club) else -.27,
-            label, color="#d7dde3", fontsize=6.5, ha="center", va="center", zorder=5)
-
-
-def _draw_side_view_club(ax, club: str) -> None:
-    """다이나믹 로프트용 깨끗한 측면 벡터 렌더."""
-    if club == "Driver":
-        body = patches.PathPatch(
-            patches.Path(
-                [(-.38,-.10),(-.24,.16),(.02,.20),(.20,.06),(.18,-.16),(-.10,-.26),(-.34,-.18),(-.38,-.10)],
-                [1,3,3,3,3,3,3,79]
-            ),
-            facecolor="#171d24", edgecolor="#7d8792", lw=1.4, zorder=3
-        )
-    elif club == "5Wood" or "Wood" in str(club) or "Hybrid" in str(club):
-        body = patches.PathPatch(
-            patches.Path(
-                [(-.34,-.08),(-.18,.13),(.02,.16),(.17,.05),(.15,-.14),(-.08,-.22),(-.30,-.16),(-.34,-.08)],
-                [1,3,3,3,3,3,3,79]
-            ),
-            facecolor="#171d24", edgecolor="#7d8792", lw=1.4, zorder=3
-        )
-    else:
-        body = patches.FancyBboxPatch(
-            (-.12,-.24), .20, .50,
-            boxstyle="round,pad=0.02,rounding_size=.03",
-            facecolor="#aeb5bc", edgecolor="#e1e5e8", lw=1.2, zorder=3
-        )
-    ax.add_patch(body)
-
-    # 샤프트
-    shaft_x = .12 if "Iron" in str(club) or "Wedge" in str(club) else .13
-    ax.plot([shaft_x,.18],[.22,.60], color="#697581", lw=5.0, solid_capstyle="round", zorder=3)
-    ax.plot([shaft_x+.005,.185],[.23,.61], color="#d0d6dc", lw=1.0, alpha=.7, zorder=4)
-
-
-def club_path_fig(row, figsize=(5.0, 3.9)):
-    """
-    고품질 TrackMan 스타일 클럽 패스 패널.
-
-    오른손잡이 화면 규칙:
-    + Club Path / + Face Angle -> 오른쪽 아래
-    - Club Path / - Face Angle -> 오른쪽 위
-    Face To Path = Face Angle - Club Path
-    """
-    fig, ax = plt.subplots(figsize=figsize, dpi=190)
-    fig.patch.set_facecolor("#0b141e")
-    ax.set_facecolor("#0b141e")
-    ax.set_xlim(-1.08, 1.08)
-    ax.set_ylim(-.72, .72)
-    ax.axis("off")
-
-    club = row.get("Club", "Driver")
-    path = pd.to_numeric(pd.Series([row.get("ClubPath_deg")]), errors="coerce").iloc[0]
-    face = pd.to_numeric(pd.Series([row.get("FaceAngle_deg")]), errors="coerce").iloc[0]
-    ftp_source = pd.to_numeric(pd.Series([row.get("FaceToPath_deg")]), errors="coerce").iloc[0]
-
-    ftp_calc = face - path if not pd.isna(face) and not pd.isna(path) else np.nan
-    if pd.isna(ftp_source):
-        ftp = ftp_calc
-    elif pd.isna(ftp_calc):
-        ftp = ftp_source
-    elif abs(float(ftp_source) - float(ftp_calc)) <= 0.3:
-        ftp = ftp_source
-    else:
-        ftp = ftp_calc
-
-    # 기준선
-    ax.plot([-1.0, .92], [0, 0], color="#d4dde5", lw=.9, ls=(0, (4, 4)), alpha=.48, zorder=1)
-
-    _draw_top_view_club(ax, club)
-
-    # 공
-    ball = patches.Circle((.80, 0), .105, facecolor="#edf2f6", edgecolor="#c8d1da", lw=1.0, zorder=8)
-    ax.add_patch(ball)
-    for dx, dy in [(-.03,.035),(.025,.04),(.045,-.015),(-.035,-.03)]:
-        ax.add_patch(patches.Circle((.80+dx,dy),.012,facecolor="#c8d0d8",edgecolor="none",alpha=.55,zorder=9))
-
-    def endpoints(angle_deg, yoff):
-        if pd.isna(angle_deg):
-            return (-.82,yoff),(.68,yoff)
-        visual = -float(np.clip(angle_deg*1.7,-16,16))
-        rad = math.radians(visual)
-        x0,x1 = -.82,.68
-        return (x0, math.tan(rad)*x0*.48+yoff), (x1, math.tan(rad)*x1*.48+yoff)
-
-    p0,p1 = endpoints(path,.028)
-    f0,f1 = endpoints(face,-.035)
-
-    # 선 그림자 + 본선
-    for a,b,color in [(p0,p1,"#2f8cff"),(f0,f1,"#ff4238")]:
-        ax.annotate("",xy=b,xytext=a,arrowprops=dict(arrowstyle="->",lw=4.4,color="#02070c",alpha=.95),zorder=5)
-        ax.annotate("",xy=b,xytext=a,arrowprops=dict(arrowstyle="->",lw=2.7,color=color,alpha=1.0),zorder=7)
-
-    def signed_value(v):
-        if pd.isna(v): return "-"
-        suffix = "R" if v > .05 else "L" if v < -.05 else ""
-        return f"{abs(float(v)):.1f}°{suffix}"
-
-    def dir_text(v, pos, neg):
-        if pd.isna(v): return "-"
-        return pos if v > .05 else neg if v < -.05 else "neutral"
-
-    ax.text(-1.00,.60,"CLUB PATH",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(-1.00,.40,signed_value(path),color="#f5f8fb",fontsize=17.5,fontweight="bold")
-    ax.text(-1.00,.27,dir_text(path,"in to out","out to in"),color="#aebbc8",fontsize=8.2)
-
-    ax.text(.44,.60,"FACE TO PATH",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(.44,.40,signed_value(ftp),color="#f5f8fb",fontsize=17.5,fontweight="bold")
-    ax.text(.44,.27,dir_text(ftp,"open","closed"),color="#aebbc8",fontsize=8.2)
-
-    ax.text(-1.00,-.58,f"Face Angle  {signed_value(face)}",color="#ff5a50",fontsize=9.0)
-    return fig
-
-
-def loft_spin_fig(row, figsize=(5.0, 3.9)):
-    """고품질 TrackMan 스타일 런치 앵글 / 스핀 로프트 패널."""
-    fig, ax = plt.subplots(figsize=figsize, dpi=190)
-    fig.patch.set_facecolor("#0b141e")
-    ax.set_facecolor("#0b141e")
-    ax.set_xlim(-1.08, 1.08)
-    ax.set_ylim(-.72, .72)
-    ax.axis("off")
-
-    club = row.get("Club", "Driver")
-    attack = pd.to_numeric(pd.Series([row.get("AttackAngle_deg")]), errors="coerce").iloc[0]
-    launch_angle = pd.to_numeric(pd.Series([row.get("LaunchAngle_deg")]), errors="coerce").iloc[0]
-    dynamic_loft = pd.to_numeric(pd.Series([row.get("DynamicLoft_deg")]), errors="coerce").iloc[0]
-    spin_loft_source = pd.to_numeric(pd.Series([row.get("SpinLoft_deg")]), errors="coerce").iloc[0]
-    spin_rate = pd.to_numeric(pd.Series([row.get("SpinRate_rpm")]), errors="coerce").iloc[0]
-
-    spin_loft = spin_loft_source
-    if pd.isna(spin_loft) and not pd.isna(dynamic_loft) and not pd.isna(attack):
-        spin_loft = float(dynamic_loft)-float(attack)
-
-    ax.plot([-1.0,.92],[0,0],color="#d4dde5",lw=.9,alpha=.45,zorder=1)
-    _draw_side_view_club(ax,club)
-
-    ball = patches.Circle((.22,0),.11,facecolor="#edf2f6",edgecolor="#c8d1da",lw=1.0,zorder=8)
-    ax.add_patch(ball)
-
-    # Attack line
-    if not pd.isna(attack):
-        a_vis = float(np.clip(attack*1.8,-18,18))
-        ar = math.radians(a_vis)
-        x0,x1 = -.72,.66
-        y0,y1 = math.tan(ar)*x0*.40, math.tan(ar)*x1*.40
-        ax.plot([x0,x1],[y0,y1],color="#2f8cff",lw=2.5,zorder=6)
-
-    # Launch angle line and spin loft fan
-    if not pd.isna(launch_angle):
-        l_vis = float(np.clip(launch_angle*.85,-8,32))
-        lr = math.radians(l_vis)
-        x0,x1 = .22,.78
-        ly0,ly1 = 0, math.tan(lr)*(x1-x0)*.85
-        ax.plot([x0,x1],[ly0,ly1],color="#ff4238",lw=2.6,zorder=7)
-
-        if not pd.isna(attack):
-            attack_y = math.tan(math.radians(float(np.clip(attack*1.8,-18,18))))*(x1-x0)*.40
-            ax.fill([x0,x1,x1],[0,ly1,attack_y],color="#b7bdc3",alpha=.30,zorder=2)
-
-    def val(v, unit="°", nd=1):
-        return "-" if pd.isna(v) else f"{float(v):.{nd}f}{unit}"
-
-    ax.text(-1.00,.60,"LAUNCH ANGLE",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(-1.00,.40,val(launch_angle),color="#f5f8fb",fontsize=17.5,fontweight="bold")
-
-    ax.text(.52,.60,"SPIN RATE",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    spin_text = "-" if pd.isna(spin_rate) else f"{int(round(float(spin_rate))):,} rpm"
-    ax.text(.52,.40,spin_text,color="#f5f8fb",fontsize=15.5,fontweight="bold")
-
-    ax.text(-1.00,-.33,"ATTACK ANGLE",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(-1.00,-.54,val(attack),color="#f5f8fb",fontsize=17.5,fontweight="bold")
-
-    ax.text(.52,-.33,"SPIN LOFT",color="#dce4ec",fontsize=8.8,fontweight="bold")
-    ax.text(.52,-.54,val(spin_loft),color="#f5f8fb",fontsize=17.5,fontweight="bold")
-
-    return fig
 
 
 def trajectory_mini_fig(row):
@@ -3337,180 +2649,6 @@ def _render_blinking_direction_distribution(
     """
     st.markdown(svg, unsafe_allow_html=True)
 
-def render_single_shot_analysis(
-    day_df: pd.DataFrame,
-    month_df: pd.DataFrame,
-    year_df: pd.DataFrame,
-    club: str,
-    selected_date: str,
-    day_summary: pd.Series,
-    month_summary: pd.Series,
-    year_summary: pd.Series,
-) -> None:
-    """
-    v8 샷별 상세 분석.
-
-    UI 순서:
-    1. 현재 선택 샷 표시
-    2. 탄착군 / 임팩트 / 클럽 패스 / 로프트-스핀
-    3. 선택 샷 핵심 수치 및 상세 데이터
-    4. 클릭 가능한 샷 목록 + AI 점수
-    5. 선택 샷 vs 기간 평균 비교
-
-    샷 이동은 테이블 행 클릭 또는 탄착군 점 클릭만 사용합니다.
-    """
-    shots = day_df[day_df["Club"] == club].copy()
-    sort_columns = _shot_sort_columns(shots)
-    if sort_columns:
-        shots = shots.sort_values(sort_columns, kind="stable")
-    shots = shots.reset_index(drop=True)
-
-    if shots.empty:
-        st.info("선택한 날짜에 해당 클럽의 샷 데이터가 없습니다.")
-        return
-
-    state_key = f"shot_index::{club}::{selected_date}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = 0
-    st.session_state[state_key] = min(
-        max(int(st.session_state[state_key]), 0),
-        len(shots) - 1,
-    )
-
-    selected_index = st.session_state[state_key]
-    row = shots.iloc[selected_index]
-    shot_no = _shot_display_number(row, selected_index)
-    shot_time = str(row.get("ShotTimeLocal", "") or "")
-    club_title = _club_korean_name(club)
-
-    st.markdown(
-        f"<div class='tm-shot-heading'>"
-        f"<div>"
-        f"<div class='tm-shot-heading-title'>{club_title} 샷별 상세 분석</div>"
-        f"<div class='tm-shot-heading-sub'>"
-        f"선택 Shot {shot_no} · {shot_time} · {selected_index + 1}/{len(shots)}"
-        f"</div>"
-        f"</div>"
-        f"<div class='tm-shot-heading-sub'>{selected_date} · 총 {len(shots)}샷</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ------------------------------------------------------------------
-    # 1) 상단: 시각적 분석
-    # ------------------------------------------------------------------
-    visual_cols = st.columns([1.18, 0.92, 0.92, 0.92])
-
-    with visual_cols[0]:
-        st.markdown(
-            f"<div class='tm-panel-title'>{club_title} 탄착군</div>",
-            unsafe_allow_html=True,
-        )
-        clicked_scatter_index = _render_clickable_shot_distribution(
-            shots,
-            selected_index,
-            key=f"shot_scatter::{club}::{selected_date}",
-            distance_metric="Carry_m",
-        )
-        if clicked_scatter_index != selected_index:
-            st.session_state[state_key] = clicked_scatter_index
-            st.rerun()
-
-    with visual_cols[1]:
-        st.markdown(
-            "<div class='tm-panel-title'>선택 샷 임팩트 위치</div>",
-            unsafe_allow_html=True,
-        )
-        st.pyplot(
-            impact_face_fig(
-                row.get("ImpactOffset_mm"),
-                row.get("ImpactHeight_mm"),
-                club,
-                points=None,
-                figsize=(5.0, 3.45),
-            ),
-            clear_figure=True,
-        )
-
-    with visual_cols[2]:
-        st.markdown(
-            "<div class='tm-panel-title'>선택 샷 클럽 패스</div>",
-            unsafe_allow_html=True,
-        )
-        st.pyplot(
-            club_path_fig(row, figsize=(4.8, 3.45)),
-            clear_figure=True,
-        )
-
-    with visual_cols[3]:
-        st.markdown(
-            "<div class='tm-panel-title'>선택 샷 로프트 / 스핀 로프트</div>",
-            unsafe_allow_html=True,
-        )
-        st.pyplot(
-            loft_spin_fig(row, figsize=(4.8, 3.45)),
-            clear_figure=True,
-        )
-
-    # ------------------------------------------------------------------
-    # 2) 시각화 아래: 선택 샷 상세 데이터
-    # ------------------------------------------------------------------
-    st.markdown(
-        "<div class='tm-shot-section-title'>선택 샷 상세 데이터</div>",
-        unsafe_allow_html=True,
-    )
-    render_top_metrics(_shot_metric_items(row))
-    render_shot_detail_panel(
-        row,
-        state_suffix=f"{club}::{selected_date}",
-    )
-
-    # ------------------------------------------------------------------
-    # 3) 샷 목록: 테이블 클릭 + AI 점수
-    # ------------------------------------------------------------------
-    st.markdown("### 샷 목록")
-    control_left, control_right = st.columns([1.2, 3.8])
-
-    with control_left:
-        sort_by_ai_low = st.checkbox(
-            "AI 낮은 순 보기",
-            value=False,
-            key=f"ai_sort::{club}::{selected_date}",
-            help="개선이 필요한 샷부터 테이블 위에 표시합니다.",
-        )
-
-    with control_right:
-        st.caption(
-            "표의 행 또는 위 탄착군의 점을 클릭하면 같은 샷이 선택됩니다. "
-            "Excellent 85~100 · Good 70~84 · Poor 50~69 · Miss 0~49"
-        )
-
-    clicked_index = _shot_table(
-        shots,
-        selected_index,
-        key=f"shot_table::{club}::{selected_date}",
-        sort_by_ai_low=sort_by_ai_low,
-    )
-    if clicked_index != selected_index:
-        st.session_state[state_key] = clicked_index
-        st.rerun()
-
-    # ------------------------------------------------------------------
-    # 4) 기간 평균 비교
-    # ------------------------------------------------------------------
-    st.markdown("### 선택 샷 vs 당일·월간·연간 평균")
-    _render_shot_compare_cards(
-        row,
-        day_summary,
-        month_summary,
-        year_summary,
-    )
-# Header
-st.markdown(
-    "<div class='tm-logo' style='padding-top:8px'><span class='tm-orange'>▰</span> TRACKMAN DASHBOARD</div>",
-    unsafe_allow_html=True,
-)
-
 def _app_secret(name: str, default: str = "") -> str:
     """Streamlit Secrets를 우선 사용하고, 없으면 환경변수를 사용합니다."""
     try:
@@ -3525,6 +2663,25 @@ storage = TrackmanStorage(
     supabase_key=_app_secret("SUPABASE_KEY"),
     bucket=_app_secret("SUPABASE_BUCKET", "trackman-reports"),
 )
+
+
+
+def _sync_journal_database_after_cloud_pull():
+    """
+    Storage에서 내려받은 JSON을 DODOS DB/AI까지 즉시 연결합니다.
+    최신 데이터 버튼과 자동 cloud refresh가 같은 경로를 사용합니다.
+    """
+    return sync_journal_db_after_pull(
+        project_dir=APP_DIR,
+        user_email=AUTH_EMAIL,
+        secrets={
+            "SUPABASE_URL": _app_secret("SUPABASE_URL"),
+            "SUPABASE_KEY": _app_secret("SUPABASE_KEY"),
+            "SUPABASE_SERVICE_ROLE_KEY": _app_secret("SUPABASE_SERVICE_ROLE_KEY"),
+            "SUPABASE_BUCKET": _app_secret("SUPABASE_BUCKET", "trackman-reports"),
+            "DODOS_USER_EMAIL": _app_secret("DODOS_USER_EMAIL", AUTH_EMAIL),
+        },
+    )
 
 # 앱이 다시 실행될 때마다 Supabase 상태를 확인합니다.
 # Streamlit Cloud의 로컬 파일은 앱 프로세스가 살아 있는 동안 유지되므로,
@@ -3550,6 +2707,15 @@ if (
             source="supabase_auto_refresh",
             details={"downloaded": restore_result.downloaded},
         )
+
+        # 신규 TrackMan JSON을 받았다면 연습일지 DB/AI도 같은 시점에 동기화
+        db_sync_result = _sync_journal_database_after_cloud_pull()
+        if not db_sync_result.ok:
+            st.warning(
+                "최신 TrackMan 데이터는 반영됐지만 "
+                f"연습일지 DB 동기화에 실패했습니다: {db_sync_result.message}"
+            )
+
         storage_status = storage.status(check_cloud=True)
 
 st.sidebar.markdown("## Trackman 분석")
@@ -3600,8 +2766,27 @@ if st.sidebar.button("☁️ 최신 데이터 불러오기", width="stretch", ty
             details={"downloaded": pull_result.downloaded},
         )
         st.cache_data.clear()
-        st.sidebar.success(f"최신 데이터 반영 완료 · 신규 {pull_result.downloaded}회")
-        st.rerun()
+
+        with st.spinner("연습일지 DB와 AI 분석을 동기화하는 중입니다..."):
+            db_sync_result = _sync_journal_database_after_cloud_pull()
+
+        if db_sync_result.ok:
+            st.sidebar.success(
+                f"최신 데이터 반영 완료 · 신규 {pull_result.downloaded}회 · 연습일지 동기화 완료"
+            )
+            st.rerun()
+        else:
+            st.sidebar.error(
+                "TrackMan 데이터는 반영됐지만 연습일지 DB 동기화에 실패했습니다."
+            )
+            with st.sidebar.expander("연습일지 동기화 오류"):
+                st.code(
+                    (
+                        db_sync_result.message
+                        + "\n\n"
+                        + (db_sync_result.stderr or db_sync_result.stdout)[-4000:]
+                    ).strip()
+                )
     else:
         st.sidebar.error("Supabase 데이터 불러오기에 실패했습니다.")
         with st.sidebar.expander("오류 내용"):
@@ -3794,381 +2979,41 @@ if scope=='연간 평균만':
     month=month.iloc[0:0]
 
 
-# -----------------------------------------------------------------------------
-# DODOS Golf Solution · Phase 3-1 Practice Journal
-# -----------------------------------------------------------------------------
-@st.cache_resource
-def _practice_journal_service() -> PracticeJournalService:
-    return PracticeJournalService(user_email=AUTH_EMAIL)
-
-
-def _journal_club_name(name: str | None) -> str:
-    if not name:
-        return "-"
-    labels = {
-        "Driver":"드라이버","3Wood":"3번 우드","5Wood":"5번 우드",
-        "4Hybrid":"4번 유틸리티","5Hybrid":"5번 유틸리티",
-        "PitchingWedge":"피칭 웨지","GapWedge":"갭 웨지",
-        "SandWedge":"샌드 웨지","50Wedge":"50도 웨지",
-        "52Wedge":"52도 웨지","54Wedge":"54도 웨지",
-        "56Wedge":"56도 웨지","58Wedge":"58도 웨지",
-    }
-    if name in labels:
-        return labels[name]
-    if str(name).endswith("Iron"):
-        return f"{str(name)[:-4]}번 아이언"
-    return str(name)
-
-
-def _journal_stars(value: int | None) -> str:
-    score = max(0, min(int(value or 0), 5))
-    return "★" * score + "☆" * (5 - score)
-
-
-def _journal_summary_card(detail) -> str:
-    score = "-" if detail.ai_score is None else f"{detail.ai_score:.1f}"
-    grade = f" ({detail.ai_grade})" if detail.ai_grade else ""
-    return (
-        "<div class='journal-card'><div class='journal-summary-grid'>"
-        "<div class='journal-kpi'><div class='journal-kpi-label'>Practice</div>"
-        f"<div class='journal-kpi-value'>{detail.shot_count:,} Shots · {detail.club_count} Clubs</div></div>"
-        "<div class='journal-kpi'><div class='journal-kpi-label'>AI Score</div>"
-        f"<div class='journal-kpi-value accent'>{score}{grade}</div></div>"
-        "<div class='journal-kpi'><div class='journal-kpi-label'>Best Club</div>"
-        f"<div class='journal-kpi-value'>{_journal_club_name(detail.best_club)}</div></div>"
-        "<div class='journal-kpi'><div class='journal-kpi-label'>Focus Club</div>"
-        f"<div class='journal-kpi-value'>{_journal_club_name(detail.focus_club)}</div></div>"
-        "</div></div>"
-    )
-
-
-def _journal_ai_card(detail) -> str:
-    lines = [
-        f"<div class='journal-ai-line'>• {message}</div>"
-        for message in detail.ai_strengths[:2]
-    ]
-    if detail.focus_club:
-        lines.append(
-            "<div class='journal-ai-line'>"
-            f"• 다음 우선순위: <b>{_journal_club_name(detail.focus_club)}</b></div>"
-        )
-    coach = (
-        f"<div class='journal-ai-coach'>{detail.coaching_summary}</div>"
-        if detail.coaching_summary else ""
-    )
-    if not lines and not coach:
-        lines.append("<div class='journal-ai-line'>저장된 AI 분석이 없습니다.</div>")
-    return (
-        "<div class='journal-card'>"
-        "<div class='journal-ai-title'>🤖 AI Coach Summary</div>"
-        + "".join(lines) + coach + "</div>"
-    )
-
-def auto_textarea_height(
-    text: str | None,
-    min_lines: int = 4,
-    max_lines: int = 40,
-    chars_per_line: int = 55,
-) -> int:
-    """저장된 멀티라인 텍스트가 다시 열릴 때 내용 길이에 맞춰 초기 높이를 계산."""
-    value = str(text or "")
-    visual_lines = 0
-
-    for line in value.split("\n"):
-        # 실제 줄바꿈뿐 아니라 긴 한 줄이 화면 폭에서 자동 줄바꿈되는 경우도 반영
-        wrapped_lines = max(1, math.ceil(max(1, len(line)) / chars_per_line))
-        visual_lines += wrapped_lines
-
-    visual_lines = max(min_lines, min(visual_lines, max_lines))
-    return 42 + (visual_lines * 24)
-
-def render_practice_journal_tab(initial_date: str | None = None) -> None:
-    with st.container(key="journal_scope"):
-        st.markdown("<div class='journal-title'>📓 연습 일지</div>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='journal-sub'>TrackMan 데이터와 AI 분석은 자동 연결되고, "
-            "오늘의 체감과 메모만 기록합니다.</div>",
-            unsafe_allow_html=True,
-        )
-
-        try:
-            service = _practice_journal_service()
-            sessions = service.list_sessions(limit=72)
-        except Exception as exc:
-            st.error(f"연습 일지 DB 연결 실패: {exc}")
-            return
-
-        if not sessions:
-            st.info("저장된 연습 세션이 없습니다.")
-            return
-
-        default_index = 0
-        if initial_date:
-            for idx, item in enumerate(sessions):
-                if item.practice_date == str(initial_date):
-                    default_index = idx
-                    break
-
-        def session_label(item):
-            score = "-" if item.ai_score is None else f"{item.ai_score:.1f}"
-            note = " · 📝" if item.has_note else ""
-            return (
-                f"{item.practice_date} · {item.shot_count}샷 · "
-                f"{item.club_count} Clubs · AI {score}{note}"
-            )
-
-        nav_col, body_col = st.columns([1.0, 3.15], gap="large")
-
-        with nav_col:
-            selected_idx = st.selectbox(
-                "최근 연습",
-                range(len(sessions)),
-                index=default_index,
-                format_func=lambda idx: session_label(sessions[idx]),
-                key="journal_session_select",
-            )
-            selected_session = sessions[int(selected_idx)]
-
-            st.markdown("<div class='journal-section-title'>최근 기록</div>", unsafe_allow_html=True)
-            for item in sessions[:7]:
-                score = "-" if item.ai_score is None else f"{item.ai_score:.1f}"
-                note = " · 일지 있음" if item.has_note else ""
-                st.markdown(
-                    "<div class='journal-history-card'>"
-                    f"<div class='journal-history-date'>{item.practice_date}</div>"
-                    f"<div class='journal-history-sub'>{item.shot_count}샷 · "
-                    f"{item.club_count} Clubs · AI {score}{note}</div></div>",
-                    unsafe_allow_html=True,
-                )
-
-        try:
-            detail = service.get_journal_detail_by_session_id(
-                selected_session.session_id
-            )
-        except Exception as exc:
-            st.error(f"연습 일지 상세 조회 실패: {exc}")
-            return
-
-        if detail is None:
-            st.warning("선택한 연습의 상세 정보를 찾지 못했습니다.")
-            return
-
-        with body_col:
-            summary_col, ai_col = st.columns([1.15, 1.85], gap="medium")
-            with summary_col:
-                st.markdown(_journal_summary_card(detail), unsafe_allow_html=True)
-            with ai_col:
-                st.markdown(_journal_ai_card(detail), unsafe_allow_html=True)
-
-            st.markdown("<div class='journal-section-title'>오늘의 체감</div>", unsafe_allow_html=True)
-
-            condition_col, satisfaction_col = st.columns(2)
-            with condition_col:
-                condition = st.radio(
-                    "컨디션",[1,2,3,4,5],
-                    index=max(0,(detail.condition_score or 3)-1),
-                    format_func=_journal_stars,
-                    horizontal=True,
-                    key=f"journal_condition::{detail.session_id}",
-                )
-            with satisfaction_col:
-                satisfaction = st.radio(
-                    "만족도",[1,2,3,4,5],
-                    index=max(0,(detail.satisfaction_score or 3)-1),
-                    format_func=_journal_stars,
-                    horizontal=True,
-                    key=f"journal_satisfaction::{detail.session_id}",
-                )
-
-            practice_goal = st.text_area(
-                "오늘의 연습 목표",
-                value=detail.practice_goal,
-                height=auto_textarea_height(detail.practice_goal, 4),
-            )
-
-            memo_col, lesson_col = st.columns(2)
-            with memo_col:
-                memo = st.text_area(
-                    "오늘 메모",
-                    value=detail.memo,
-                    height=auto_textarea_height(detail.memo, 6),
-                )
-            with lesson_col:
-                lesson_note = st.text_area(
-                    "레슨 / 스윙 노트",
-                    value=detail.lesson_note,
-                    height=auto_textarea_height(detail.lesson_note, 6)
-                )
-
-            save_col, state_col = st.columns([1.0,2.6], vertical_alignment="bottom")
-            with save_col:
-                save_clicked = st.button(
-                    "💾 연습 일지 저장",
-                    type="primary",
-                    width="stretch",
-                    key=f"journal_save::{detail.session_id}",
-                )
-            with state_col:
-                if detail.condition_score or detail.satisfaction_score:
-                    st.caption(
-                        "저장된 기록 · "
-                        f"컨디션 {_journal_stars(detail.condition_score)} · "
-                        f"만족도 {_journal_stars(detail.satisfaction_score)}"
-                    )
-                else:
-                    st.caption("아직 저장된 개인 기록이 없습니다.")
-
-            if save_clicked:
-                try:
-                    service.save_journal(
-                        session_id=detail.session_id,
-                        practice_date=detail.practice_date,
-                        condition_score=int(condition),
-                        satisfaction_score=int(satisfaction),
-                        practice_goal=practice_goal,
-                        memo=memo,
-                        lesson_note=lesson_note,
-                    )
-                    st.toast("연습 일지를 저장했습니다.", icon="✅")
-                    st.success(f"{detail.practice_date} 연습 일지가 저장되었습니다.")
-                except Exception as exc:
-                    st.error(f"연습 일지 저장 실패: {exc}")
-
-
-
 analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단', '📓 연습 일지'])
 
 with analysis_tabs[0]:
-    st.markdown(f"<div class='tm-title'>기간 비교 ({club})</div>",unsafe_allow_html=True)
-    st.markdown(f"<div class='tm-legend'><span><i class='tm-dot tm-dot-day'></i>선택일 ({selected_date})</span><span><i class='tm-dot tm-dot-month'></i>월간 평균 ({mlabel})</span><span><i class='tm-dot tm-dot-year'></i>연간 평균 ({ylabel})</span></div>",unsafe_allow_html=True)
-    _render_compare_cards(ds,ms,ys)
-    # 세 패널의 제목/컨트롤 행을 먼저 만들고 그래프 행을 분리해 상단 정렬을 맞춥니다.
-    compare_headers = st.columns(3)
-    with compare_headers[0]:
-        title_col, control_col = st.columns([1.0, 0.72], vertical_alignment="center")
-        with title_col:
-            st.markdown("<div class='tm-panel-title'>거리 분포 비교</div>", unsafe_allow_html=True)
-        with control_col:
-            avg_distance_choice = st.radio(
-                '거리 기준', ['캐리', '토탈'], horizontal=True,
-                key=f'avg_distance_metric::{club}::{selected_date}',
-                label_visibility='collapsed',
-            )
-    with compare_headers[1]:
-        st.markdown(f"<div class='tm-panel-title'>{_club_korean_name(club)} 탄착군 비교</div>",unsafe_allow_html=True)
-    with compare_headers[2]:
-        st.markdown(f"<div class='tm-panel-title'>월별 {'캐리' if avg_distance_choice == '캐리' else '토탈'} 추세</div>",unsafe_allow_html=True)
-
-    avg_distance_metric = 'Carry_m' if avg_distance_choice == '캐리' else 'Total_m'
-    cc=st.columns(3)
-    with cc[0]:
-        _distance_chart(day,month,year,club,avg_distance_metric)
-    with cc[1]:
-        _side_chart(day,month,year,club,avg_distance_metric)
-    with cc[2]:
-        _trend(filtered_df,club,pd.to_datetime(selected_date).year,mode,avg_distance_metric)
-    periods=[('선택일',selected_date,day,ds,'전체 샷 평균'),('월간 평균',mlabel,month,ms,mode),('연간 평균',ylabel,year,ys,mode)]
-    st.markdown('### 임팩트 위치 비교')
-    cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty:
-                st.info('비교 데이터 없음')
-            else:
-                st.pyplot(impact_face_fig(s.get('Avg_ImpactOffset_mm'),s.get('Avg_ImpactHeight_mm'),club,raw[raw['Club']==club],figsize=(5,3.2)),clear_figure=True)
-    st.markdown('### 클럽 패스 비교')
-    cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty:
-                st.info('비교 데이터 없음')
-            else:
-                st.pyplot(club_path_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
-    st.markdown('### 런치 앵글 / 스핀 로프트 비교')
-    cols=st.columns(3)
-    for c,(title,label,raw,s,m) in zip(cols,periods):
-        with c:
-            st.markdown(f'**{title} ({label})**')
-            if s.empty:
-                st.info('비교 데이터 없음')
-            else:
-                st.pyplot(loft_spin_fig(_period_row(raw,s,club,m),figsize=(4.8,3.4)),clear_figure=True)
-    st.markdown('### 자동 분석 요약')
-    st.markdown(f"<div class='tm-auto-summary'>{_auto_text(ds,ms,ys,club)}</div>",unsafe_allow_html=True)
-
-    # 상세 분석 화면에서 유용했던 기능은 평균 분석 하단의 접이식 메뉴로 통합합니다.
-    with st.expander('전체 클럽 요약', expanded=False):
-        selected_day_all_clubs = filtered_df[filtered_df['Date'] == selected_date].copy()
-        all_club_summary = pd.DataFrame(
-            make_summary(selected_day_all_clubs.to_dict('records'))
-        )
-        if all_club_summary.empty:
-            st.info('선택한 날짜의 클럽 요약 데이터가 없습니다.')
-        else:
-            all_club_summary = all_club_summary[
-                [c for c in SUMMARY_COLUMNS if c in all_club_summary.columns]
-            ]
-            if 'Club' in all_club_summary.columns:
-                all_club_summary = all_club_summary.assign(
-                    _club_order=all_club_summary['Club'].map(club_sort_key)
-                ).sort_values('_club_order').drop(columns='_club_order')
-            render_club_cards(all_club_summary, max_cards=6)
-            st.dataframe(
-                safe_dataframe_for_streamlit(all_club_summary),
-                width='stretch',
-                hide_index=True,
-            )
-
-    with st.expander('원본 샷 데이터', expanded=False):
-        raw_filter_col1, raw_filter_col2 = st.columns(2)
-        with raw_filter_col1:
-            raw_clubs = st.multiselect(
-                '클럽',
-                clubs,
-                default=[club],
-                key=f'raw_shot_clubs::{club}::{selected_date}',
-            )
-        with raw_filter_col2:
-            raw_dates = st.multiselect(
-                '날짜',
-                sorted(dates, reverse=True),
-                default=[selected_date],
-                key=f'raw_shot_dates::{club}::{selected_date}',
-            )
-
-        raw_df = filtered_df.copy()
-        if raw_clubs:
-            raw_df = raw_df[raw_df['Club'].isin(raw_clubs)]
-        if raw_dates:
-            raw_df = raw_df[raw_df['Date'].isin(raw_dates)]
-
-        raw_columns = [
-            c for c in [
-                'Club', 'StrokeNo', 'Date', 'ShotTimeLocal',
-                'Carry_m', 'Total_m', 'Run_m',
-                'BallSpeed_mps', 'ClubSpeed_mps', 'SmashFactor',
-                'SpinRate_rpm', 'LaunchAngle_deg', 'AttackAngle_deg',
-                'ClubPath_deg', 'FaceAngle_deg', 'FaceToPath_deg',
-                'TotalSide_m', 'ImpactOffset_mm', 'ImpactHeight_mm',
-            ] if c in raw_df.columns
-        ]
-        raw_df = raw_df.sort_values(
-            [c for c in ['Date', 'Club', 'StrokeNo'] if c in raw_df.columns],
-            ascending=[False, True, True][:len([c for c in ['Date', 'Club', 'StrokeNo'] if c in raw_df.columns])],
-        ) if not raw_df.empty else raw_df
-        st.caption(f'표시 샷 수: {len(raw_df):,}개')
-        raw_display_df = raw_df.loc[:, raw_columns].reset_index(drop=True)
-        csv_bytes = raw_display_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            'CSV 다운로드',
-            data=csv_bytes,
-            file_name=f'trackman_raw_{selected_date}.csv',
-            mime='text/csv',
-            key=f'raw_csv::{club}::{selected_date}',
-        )
-        render_dark_dataframe(raw_display_df)
+    render_average_analysis(
+        club=club,
+        selected_date=selected_date,
+        month_label=mlabel,
+        year_label=ylabel,
+        mode=mode,
+        day_df=day,
+        month_df=month,
+        year_df=year,
+        day_summary=ds,
+        month_summary=ms,
+        year_summary=ys,
+        filtered_df=filtered_df,
+        clubs=clubs,
+        dates=dates,
+        render_compare_cards=_render_compare_cards,
+        club_korean_name=_club_korean_name,
+        distance_chart=_distance_chart,
+        side_chart=_side_chart,
+        trend_chart=_trend,
+        impact_face_fig=impact_face_fig,
+        club_path_fig=club_path_fig,
+        loft_spin_fig=loft_spin_fig,
+        period_row=_period_row,
+        auto_text=_auto_text,
+        make_summary=make_summary,
+        summary_columns=SUMMARY_COLUMNS,
+        club_sort_key=club_sort_key,
+        render_club_cards=render_club_cards,
+        safe_dataframe_for_streamlit=safe_dataframe_for_streamlit,
+        render_dark_dataframe=render_dark_dataframe,
+    )
 
 with analysis_tabs[1]:
     render_single_shot_analysis(
@@ -4180,6 +3025,17 @@ with analysis_tabs[1]:
         day_summary=ds,
         month_summary=ms,
         year_summary=ys,
+        shot_sort_columns=_shot_sort_columns,
+        shot_display_number=_shot_display_number,
+        club_korean_name=_club_korean_name,
+        render_clickable_shot_distribution=_render_clickable_shot_distribution,
+        impact_face_fig=impact_face_fig,
+        club_path_fig=club_path_fig,
+        loft_spin_fig=loft_spin_fig,
+        shot_metric_items=_shot_metric_items,
+        render_shot_detail_panel=render_shot_detail_panel,
+        shot_table=_shot_table,
+        render_shot_compare_cards=_render_shot_compare_cards,
     )
 
 
@@ -4187,128 +3043,23 @@ with analysis_tabs[1]:
 # DODOS Golf Solution Phase 2 / Step 1 - Rule-based AI Swing Diagnosis
 # -----------------------------------------------------------------------------
 with analysis_tabs[2]:
-    st.markdown("<div class='tm-title'>🤖 AI 스윙 진단</div>", unsafe_allow_html=True)
-    st.caption(
-        "오늘 연습한 전체 클럽을 종합해 클럽군별 품질, 베스트 클럽, 우선 개선 클럽과 "
-        "다음 연습 방향을 요약합니다."
+    ai_report = render_ai_summary(
+        df=df,
+        selected_date=selected_date,
     )
 
-    goal_col, guide_col = st.columns([1.15, 2.85], vertical_alignment="bottom")
-    with goal_col:
-        _ai_goal_labels = goal_options()
-        _ai_goal_keys = list(_ai_goal_labels.keys())
-        ai_goal = st.selectbox(
-            "🎯 목표 수준",
-            _ai_goal_keys,
-            index=_ai_goal_keys.index("single") if "single" in _ai_goal_keys else 0,
-            format_func=lambda key: _ai_goal_labels[key],
-            key="dodos_ai_goal",
-        )
-    with guide_col:
-        st.caption(
-            "AI 종합 점수는 Performance 50% · Consistency 30% · Trend 20%로 계산하며, "
-            "상단 리포트에서는 이 계산식보다 오늘 무엇을 유지하고 무엇을 보완할지를 우선 보여줍니다."
-        )
-
-    ai_report = diagnose_practice(
-        df,
-        selected_date,
-        goal=ai_goal,
-        recent_sessions=10,
-        min_shots_per_club=2,
+    render_ai_club_detail(
+        ai_report=ai_report,
+        selected_club=club,
+        selected_date=selected_date,
     )
-    st.markdown(diagnosis_html(ai_report), unsafe_allow_html=True)
-
-    if ai_report.clubs:
-        with st.container(key="ai_club_detail"):
-            st.markdown(
-                "<div class='ai-club-detail-title'>클럽별 상세 진단</div>",
-                unsafe_allow_html=True,
-            )
-            club_names = [item.club for item in ai_report.clubs]
-            default_index = club_names.index(club) if club in club_names else 0
-            ai_selected_club = st.selectbox(
-                "클럽별 AI 평가",
-                club_names,
-                index=default_index,
-                format_func=_club_korean_name,
-                key=f"ai_club::{selected_date}",
-            )
-            club_report = next(
-                item for item in ai_report.clubs
-                if item.club == ai_selected_club
-            )
-
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("AI 점수", f"{club_report.score:.0f}/100")
-            c2.metric("등급", club_report.grade)
-            c3.metric("신뢰도", f"{club_report.confidence}%")
-            c4.metric("분석 샷", f"{club_report.shots}개")
-
-            b1, b2, b3 = st.columns(3)
-            b1.metric("Performance", f"{club_report.performance_score:.0f}/100")
-            b2.metric("Consistency", f"{club_report.consistency_score:.0f}/100")
-            b3.metric("Trend", f"{club_report.trend_score:.0f}/100")
-
-
-if "Wedge" in ai_selected_club or ai_selected_club in {"PitchingWedge", "GapWedge", "SandWedge"}:
-    wedge_bucket_count = club_report.metrics.get("wedge_valid_buckets")
-    wedge_radius = club_report.metrics.get("wedge_dispersion_radius")
-    wedge_lateral = club_report.metrics.get("wedge_lateral_abs_mean")
-    wedge_miss = club_report.metrics.get("wedge_big_miss_rate_pct")
-
-    if wedge_bucket_count and wedge_bucket_count > 0:
-        st.caption("웨지 v5 · 10m 거리대별 탄착군 평가")
-        w1, w2, w3, w4 = st.columns(4)
-        w1.metric("평가 거리대", f"{int(wedge_bucket_count)}개")
-        w2.metric(
-            "68% 탄착군 반경",
-            "-" if wedge_radius is None else f"{float(wedge_radius):.1f}m",
-        )
-        w3.metric(
-            "평균 좌우 편차",
-            "-" if wedge_lateral is None else f"{float(wedge_lateral):.1f}m",
-        )
-        w4.metric(
-            "큰 미스 비율",
-            "-" if wedge_miss is None else f"{float(wedge_miss):.0f}%",
-        )
-    else:
-        st.info(
-            "웨지 전용 탄착군 평가를 위해 같은 10m 거리대에 최소 3샷이 필요합니다. "
-            "현재는 일반 평가를 참고용으로 표시합니다."
-        )
-
-        detail_left, detail_right = st.columns(2)
-        with detail_left:
-            st.markdown("#### 장점")
-            if club_report.strengths:
-                for message in club_report.strengths:
-                    st.success(message)
-            else:
-                st.info("뚜렷한 우위 지표가 없습니다.")
-
-        with detail_right:
-            st.markdown("#### 개선 필요")
-            if club_report.improvements:
-                for message in club_report.improvements:
-                    st.warning(message)
-            else:
-                st.success("최근 기준 대비 뚜렷한 악화 지표가 없습니다.")
-
-        st.markdown("#### 추천 연습")
-        for task in club_report.tasks:
-            st.markdown(f"- {task}")
-
-        if club_report.baseline_sessions < 3:
-            st.caption(
-                "※ 해당 클럽의 과거 비교 세션이 3회 미만이므로 "
-                "현재 점수는 절대 평가보다 참고용 성격이 강합니다."
-            )
 
 
 # -----------------------------------------------------------------------------
 # Phase 3-1 · Practice Journal
 # -----------------------------------------------------------------------------
 with analysis_tabs[3]:
-    render_practice_journal_tab(initial_date=selected_date)
+    render_practice_journal_tab(
+        user_email=AUTH_EMAIL,
+        initial_date=selected_date,
+    )

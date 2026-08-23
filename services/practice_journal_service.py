@@ -186,7 +186,6 @@ class PracticeJournalService:
             lesson_note=str(lesson.get("note") or ""),
         )
 
-
     def get_journal_detail_by_session_id(
         self,
         session_id: str,
