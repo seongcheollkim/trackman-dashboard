@@ -46,6 +46,21 @@ def _pct(value: Any) -> float | None:
     return None if value is None else round(value, 1)
 
 
+def _is_fir_hit(value: Any) -> bool:
+    """Hole19 stores fairway result as hit/left/right/miss.
+
+    Only an explicit 'hit' means the fairway was found.  Values such as
+    'left' and 'right' are fairway misses and must not be counted as FIR.
+    """
+    return str(value or "").strip().lower() in {"hit", "yes", "true", "1"}
+
+
+def _is_gir_hit(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"hit", "yes", "true", "1"}
+
+
 class RoundService:
     def __init__(self, *, client: Client | None = None,
                  config: DodosSupabaseConfig | None = None,
@@ -131,11 +146,18 @@ class RoundService:
         scores = [h.get("score") for h in clean_holes if h.get("score") is not None]
         putts = [h.get("putts") for h in clean_holes if h.get("putts") is not None]
         penalties = [h.get("penalties") for h in clean_holes if h.get("penalties") is not None]
-        fir_values = [h.get("fir") for h in clean_holes if h.get("par", 0) > 3 and h.get("fir") not in (None, "")]
-        gir_values = [h.get("gir") for h in clean_holes if h.get("par") and h.get("gir") is not None]
+        fir_values = [
+            h.get("fir") for h in clean_holes
+            if h.get("par", 0) > 3 and h.get("fir") not in (None, "")
+        ]
+        gir_values = [
+            h.get("gir") for h in clean_holes
+            if h.get("par") and h.get("gir") is not None
+        ]
 
-        fir_hits = sum(1 for value in fir_values if str(value).lower() not in {"false", "miss", "0", "none"})
-        gir_hits = sum(1 for value in gir_values if bool(value))
+        # Hole19: only 'hit' counts as FIR. 'left'/'right' are misses.
+        fir_hits = sum(1 for value in fir_values if _is_fir_hit(value))
+        gir_hits = sum(1 for value in gir_values if _is_gir_hit(value))
         total_fir = len(fir_values)
         total_gir = len(gir_values)
 
