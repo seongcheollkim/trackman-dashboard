@@ -14,6 +14,17 @@ def _round_service(user_email: str) -> RoundService:
     return RoundService(user_email=user_email)
 
 
+def _is_fir_hit(value: Any) -> bool:
+    """Hole19 FIR: only an explicit hit is a successful fairway hit."""
+    return str(value or "").strip().lower() in {"hit", "yes", "true", "1"}
+
+
+def _is_gir_hit(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"hit", "yes", "true", "1"}
+
+
 def _empty_holes() -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -63,6 +74,7 @@ def _normalize_holes_editor(df: pd.DataFrame) -> list[dict[str, Any]]:
         hole_number = row.get("홀")
         if pd.isna(hole_number):
             continue
+
         def clean(value):
             if value is None:
                 return None
@@ -92,11 +104,14 @@ def _round_metrics(holes: list[dict[str, Any]]) -> tuple[int | None, int | None,
     scores = [h["score"] for h in holes if h.get("score") is not None]
     putts = [h["putts"] for h in holes if h.get("putts") is not None]
     penalty = sum(int(h.get("penalties") or 0) for h in holes)
-    par3 = [h for h in holes if int(h.get("par") or 0) > 3 and h.get("fir") not in (None, "")]
-    fir_hits = sum(1 for h in par3 if str(h.get("fir")).lower() not in {"miss", "false", "0", "none"})
+    fir_rows = [
+        h for h in holes
+        if int(h.get("par") or 0) > 3 and h.get("fir") not in (None, "")
+    ]
+    fir_hits = sum(1 for h in fir_rows if _is_fir_hit(h.get("fir")))
     gir_rows = [h for h in holes if h.get("gir") is not None]
-    gir_hits = sum(1 for h in gir_rows if bool(h.get("gir")))
-    fir_pct = round(fir_hits / len(par3) * 100, 1) if par3 else None
+    gir_hits = sum(1 for h in gir_rows if _is_gir_hit(h.get("gir")))
+    fir_pct = round(fir_hits / len(fir_rows) * 100, 1) if fir_rows else None
     gir_pct = round(gir_hits / len(gir_rows) * 100, 1) if gir_rows else None
     return (sum(scores) if scores else None, sum(putts) if putts else None, fir_pct, gir_pct, penalty)
 
@@ -248,9 +263,7 @@ def _render_import(user_email: str) -> None:
         try:
             imported = fetch_hole19_round(url)
             st.session_state["hole19_imported_round"] = imported
-            st.success(
-                f"가져오기 성공 · {imported.course_name} · {len(imported.holes)}홀"
-            )
+            st.success(f"가져오기 성공 · {imported.course_name} · {len(imported.holes)}홀")
         except Exception as exc:
             st.error(f"Hole19 라운드 가져오기 실패: {exc}")
 
