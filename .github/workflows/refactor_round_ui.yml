@@ -1,3 +1,4 @@
+# Temporary trigger marker - main branch runner performs the patch.
 name: Integrate round record UI
 
 on:
@@ -12,89 +13,5 @@ jobs:
   patch-round-ui:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Patch application
-        run: |
-          if [ "${{ github.event.head_commit.message }}" = "feat: integrate round record into main tabs" ]; then
-            echo "Patch commit already created; stopping."
-            exit 0
-          fi
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('streamlit_app.py')
-          text = path.read_text(encoding='utf-8')
-
-          import_line = 'from ui.round_record import render_round_record\n'
-          if import_line not in text:
-              marker = 'import streamlit as st\n'
-              if marker not in text:
-                  raise SystemExit('Could not find streamlit import marker')
-              text = text.replace(marker, marker + '\n' + import_line, 1)
-
-          old_tabs = "analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단', '📓 연습 일지'])"
-          new_tabs = "analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단', '📓 연습 일지', '⛳ 라운드 기록'])"
-          if old_tabs in text:
-              theme_code = '''# -----------------------------------------------------------------------------
-# Global dark/readable component theme
-# -----------------------------------------------------------------------------
-ROUND_APP_THEME_CSS = """
-<style>
-.stApp, .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp h4,
-.stApp [data-testid="stMarkdownContainer"], .stApp [data-testid="stWidgetLabel"],
-.stApp [data-testid="stCaptionContainer"] { color:#eef4fb !important; opacity:1 !important; }
-.stApp [data-testid="stCaptionContainer"], .stApp .stCaption { color:#b7c5d5 !important; }
-.stApp input, .stApp textarea, .stApp [contenteditable="true"] { background:#0d1721 !important; color:#f4f8ff !important; }
-.stApp [data-baseweb="select"] > div, .stApp [data-baseweb="input"] > div, .stApp [data-baseweb="textarea"] > div { background:#0d1721 !important; color:#f4f8ff !important; border-color:#31445a !important; }
-.stApp [data-baseweb="select"] span, .stApp [data-baseweb="select"] input, .stApp [data-baseweb="select"] div { color:#f4f8ff !important; }
-.stApp [data-testid="stDataFrame"], .stApp [data-testid="stDataEditor"] { background:#0d1721 !important; border:1px solid #263548 !important; border-radius:10px !important; }
-.stApp [data-testid="stDataFrame"] *, .stApp [data-testid="stDataEditor"] * { color:#eef4fb !important; }
-.stApp [data-testid="stDataEditor"] [role="columnheader"] { background:#142232 !important; }
-.stApp [data-testid="stDataEditor"] [role="gridcell"] { background:#0d1721 !important; }
-.stApp .stTabs [data-baseweb="tab-list"] { background:#0c1520 !important; }
-.stApp .stTabs [data-baseweb="tab"] { color:#d7e1ec !important; }
-.stApp .stTabs [aria-selected="true"] { color:#ff8a32 !important; }
-.stApp .stButton > button, .stApp [data-testid="stFormSubmitButton"] button { color:#ffffff !important; background:#172638 !important; border-color:#42566e !important; }
-.stApp [data-testid="stExpander"] summary, .stApp [data-testid="stExpander"] summary p { color:#f4f8ff !important; }
-</style>
-"""
-st.markdown(ROUND_APP_THEME_CSS, unsafe_allow_html=True)
-
-'''
-              text = text.replace(old_tabs, theme_code + new_tabs, 1)
-          elif new_tabs not in text:
-              raise SystemExit('Could not find analysis tabs declaration')
-
-          practice_block = '''with analysis_tabs[3]:
-    render_practice_journal_tab(
-        user_email=AUTH_EMAIL,
-        initial_date=selected_date,
-    )'''
-          round_block = practice_block + '''
-
-
-# -----------------------------------------------------------------------------
-# Phase 4 · Round Record
-# -----------------------------------------------------------------------------
-with analysis_tabs[4]:
-    render_round_record(user_email=AUTH_EMAIL)'''
-          if 'with analysis_tabs[4]:' not in text:
-              if practice_block not in text:
-                  raise SystemExit('Could not find practice journal tab block')
-              text = text.replace(practice_block, round_block, 1)
-
-          path.write_text(text, encoding='utf-8')
-          page = Path('pages/4_⛳_라운드_기록.py')
-          if page.exists():
-              page.unlink()
-          PY
-
-      - name: Commit patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && exit 0
-          git commit -m "feat: integrate round record into main tabs"
-          git push origin HEAD:feature/round-record
+      - uses: actions/checkout@v4
+      - run: echo "Temporary branch workflow; main-branch runner performs the patch."
