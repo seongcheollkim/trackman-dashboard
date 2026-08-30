@@ -167,6 +167,7 @@ from ui.shot_analysis import render_single_shot_analysis
 from ui.average_analysis import render_average_analysis
 from charts.club_visuals import club_path_fig, impact_face_fig, loft_spin_fig
 from ui.practice_journal import render_practice_journal_tab
+from ui.round_record import render_round_record
 from services.journal_sync_service import sync_journal_db_after_pull
 
 st.set_page_config(
@@ -872,6 +873,47 @@ div[data-baseweb="popover"] .stButton > button:hover {
 .st-key-journal_scope [data-testid="stCaptionContainer"]{color:#aab7c7!important}
 .st-key-journal_scope [data-testid="stBaseButton-primary"]{background:linear-gradient(180deg,#ff812d,#ef5d0e)!important;color:#fff!important;border:1px solid #ff9b54!important;font-weight:850!important}
 @media(max-width:900px){.journal-summary-grid{grid-template-columns:1fr}}
+
+
+/* DODOS unified navigation/theme */
+/* Keep the functional analysis sidebar, but remove Streamlit's native Pages navigation. */
+[data-testid="stSidebarNav"] { display: none !important; }
+
+/* Do not show the native sidebar collapse control as a Pages/navigation entry. */
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+
+/* High-contrast dark UI */
+[data-testid="stAppViewContainer"], .stApp { color: #ffffff !important; }
+[data-testid="stMarkdownContainer"], [data-testid="stText"],
+[data-testid="stCaptionContainer"], .stCaption,
+.stTextInput label, .stTextArea label, .stSelectbox label,
+.stNumberInput label, .stDateInput label, .stMultiSelect label,
+.stRadio label, .stCheckbox label, .stSlider label,
+.stFileUploader label, [data-testid="stWidgetLabel"] {
+  color: #ffffff !important; opacity: 1 !important;
+}
+
+/* Native Streamlit tables */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+  background: #0d1722 !important; color: #ffffff !important;
+  border: 1px solid #263548 !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+[data-testid="stDataFrame"] iframe, [data-testid="stDataEditor"] iframe {
+  background: #0d1722 !important;
+}
+
+/* BaseWeb controls */
+[data-baseweb="select"] > div,
+[data-baseweb="input"] > div,
+[data-baseweb="textarea"] > div {
+  background: #0d1722 !important; color: #ffffff !important;
+  border-color: #31445a !important;
+}
+[data-baseweb="select"] *, [data-baseweb="input"] *, [data-baseweb="textarea"] * {
+  color: #ffffff !important;
+}
 
 </style>
 """
@@ -2979,7 +3021,7 @@ if scope=='연간 평균만':
     month=month.iloc[0:0]
 
 
-analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단', '📓 연습 일지'])
+analysis_tabs = st.tabs(['📊 평균 분석', '🎯 샷별 분석', '🤖 AI 스윙 진단', '📓 연습 일지', '⛳ 라운드 기록'])
 
 with analysis_tabs[0]:
     render_average_analysis(
@@ -3062,4 +3104,12 @@ with analysis_tabs[3]:
     render_practice_journal_tab(
         user_email=AUTH_EMAIL,
         initial_date=selected_date,
+    )
+
+# -----------------------------------------------------------------------------
+# Phase 4 · Round Record
+# -----------------------------------------------------------------------------
+with analysis_tabs[4]:
+    render_round_record(
+        user_email=AUTH_EMAIL,
     )
